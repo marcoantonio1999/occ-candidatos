@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Candidatos de OCC</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f6f4;color:#233e32;font:17px system-ui,sans-serif}main{max-width:790px;margin:45px auto;padding:28px}section{background:white;border:1px solid #dce6de;border-radius:18px;padding:28px;margin:20px 0}h1{font-size:32px;margin:10px 0}h2{font-size:22px}p{line-height:1.6}.muted{color:#627269}label{display:block;margin:18px 0 8px}input[type=text],select{width:100%;font:inherit;padding:13px;border:1px solid #bccfc1;border-radius:9px}button{font:inherit;border:1px solid #367454;border-radius:9px;padding:13px 18px;background:white;color:#295a40;cursor:pointer;margin:6px 5px 6px 0}button.primary{background:#367454;color:white}button:disabled{opacity:.5;cursor:default}#message{white-space:pre-line}#warning{background:#fff7df;padding:16px;border-radius:10px;font-size:15px}#counts{font-size:21px}#error{color:#a32626}input[type=checkbox]{width:18px;height:18px;vertical-align:middle}small{line-height:1.5;display:block} [hidden]{display:none!important}
+</style>
+<main><small class="muted">RECURSOS HUMANOS</small><h1>Candidatos de OCC</h1><p class="muted">Recopila los candidatos de una vacante y descarga su información en Excel.</p>
+<section><h2>¿Qué deseas descargar?</h2><label for="vacancy">Nombre de la vacante</label><input id="vacancy" type="text" maxlength="160" placeholder="Por ejemplo: Auxiliar administrativo">
+<label for="mode">Candidatos</label><select id="mode"><option value="all">Todos</option><option value="seen">Solo vistos</option><option value="unseen">Solo no vistos</option></select>
+<div id="warning"><p>Al leer los candidatos no vistos, OCC puede marcarlos como vistos. El Excel conservará el estado que tenían al comenzar.</p><label><input id="consent" type="checkbox"> Entiendo y deseo continuar.</label></div>
+<p><button id="start" class="primary">Comenzar descarga</button><button id="resume" hidden>Continuar descarga</button></p><small class="muted">La descarga corresponde a la vacante que selecciones en OCC. Escribe aquí ese mismo nombre.</small></section>
+<section aria-live="polite"><h2>Tu descarga</h2><p id="message">Cargando…</p><p id="counts"></p><p id="savedVacancy" class="muted"></p><p id="error" role="alert"></p>
+<button id="ready" class="primary" hidden>Ya estoy en la vacante</button><button id="pause" hidden>Pausar y guardar</button><button id="excel" hidden>Descargar Excel</button>
+<p class="muted">Tu avance se guarda en esta computadora. Si se interrumpe la descarga, abre de nuevo <b>ABRIR</b> y pulsa <b>Continuar descarga</b>. No borres ni muevas la carpeta mientras esté trabajando.</p></section>
+<small class="muted">El archivo contiene datos personales: compártelo únicamente con las personas autorizadas. Esta herramienta no envía mensajes ni guarda candidatos en Google Sheets.</small></main>
+<script>
+const key='__TOKEN__', el=id=>document.getElementById(id);let initialized=false;
+async function api(path,data){const response=await fetch(path,{method:data?'POST':'GET',headers:{'X-OCC-Key':key,'Content-Type':'application/json'},body:data?JSON.stringify(data):undefined});const result=await response.json();if(!response.ok)throw Error(result.error||'No se pudo completar.');return result}
+async function action(path,data={}){el('error').textContent='';try{await api(path,data);await refresh()}catch(error){el('error').textContent=error.message}}
+function warning(){el('warning').hidden=el('mode').value==='seen'}el('mode').onchange=warning;
+el('start').onclick=()=>action('/iniciar',{vacancy:el('vacancy').value,mode:el('mode').value,consent:el('consent').checked});
+el('resume').onclick=()=>action('/continuar');el('ready').onclick=()=>action('/listo');el('pause').onclick=()=>action('/pausar');
+el('excel').onclick=async()=>{try{const r=await fetch('/excel',{headers:{'X-OCC-Key':key}});if(!r.ok)throw Error((await r.json()).error);const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download='Candidatos-OCC.xlsx';a.click();setTimeout(()=>URL.revokeObjectURL(url),10000)}catch(e){el('error').textContent=e.message}};
+async function refresh(){try{const s=await api('/estado');el('message').textContent=s.message;el('counts').textContent=s.count+' candidatos recopilados'+(s.total?' · '+s.reviewed+' de '+s.total+' revisados':'')+(s.pages?' · '+s.pages+' páginas':'');el('savedVacancy').textContent=s.saved?'Vacante guardada: '+s.vacancy:'';el('start').disabled=s.busy||(s.saved&&!s.complete);el('vacancy').disabled=el('mode').disabled=s.busy||(s.saved&&!s.complete);el('resume').hidden=!s.saved||s.complete||s.busy;el('ready').hidden=!s.waiting;el('pause').hidden=!s.busy;el('excel').hidden=!s.count;if(!initialized){if(s.saved){el('vacancy').value=s.vacancy;el('mode').value=s.mode}initialized=true;warning()}}catch(e){el('message').textContent='La herramienta se cerró. Tu avance guardado permanece en esta computadora. Abre ABRIR de nuevo para continuar.'}}
+refresh();setInterval(refresh,1500);
+</script></html>

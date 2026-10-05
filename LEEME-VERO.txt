@@ -1,0 +1,27 @@
+CANDIDATOS DE OCC
+
+1. Descarga OCC-Candidatos-Instalador.exe desde el boton del proyecto.
+2. Abre el archivo y confirma la instalacion.
+3. Se abrira la pantalla. Para usarlo despues, abre Candidatos de OCC desde el escritorio.
+4. Escribe el nombre de la vacante y elige Todos, Solo vistos o Solo no vistos.
+5. Pulsa Comenzar descarga.
+6. En la ventana de OCC que aparezca, inicia sesion y selecciona esa vacante.
+7. Vuelve a la pantalla y pulsa Ya estoy en la vacante.
+8. Espera y pulsa Descargar Excel. No abras otros candidatos mientras trabaja.
+
+SI SE INTERRUMPE
+Vuelve a abrir Candidatos de OCC y pulsa Continuar descarga. Lo recopilado se conserva.
+Puedes descargar el Excel de lo recopilado sin esperar a que termine.
+Si la herramienta sigue trabajando, usa Pausar y guardar antes de cerrar.
+Si no hay internet, espera a que vuelva y continua despues.
+
+IMPORTANTE
+Al leer candidatos no vistos, OCC puede marcarlos como vistos. El Excel
+conserva el estado original. No se descartan candidatos ni se envian mensajes.
+No se desbloquean perfiles de pago: esos perfiles se omiten.
+No borres la carpeta resultados: contiene tu avance y los Excel guardados.
+Conserva toda la carpeta en la misma computadora para continuar.
+No compartas resultados ni perfil-occ con otras personas: contienen datos privados.
+Necesitas Windows de 64 bits, Google Chrome y conexion a internet.
+No necesitas instalar Python ni escribir comandos.
+Si Windows bloquea el instalador, solicita ayuda; no desactives sus protecciones.
