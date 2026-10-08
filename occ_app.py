@@ -14,6 +14,10 @@ from occ_prueba import ROOT, URL, DISCOVER, norm, allowed_profile, extract_profi
 
 ASSETS = Path(__file__).resolve().parent
 
+def row_count(data):
+    rows = data.get('rows', [])
+    return len(rows if data.get('platform') == 'computrabajo' else unique(rows))
+
 
 class Progress:
     def __init__(self, folder):
@@ -65,11 +69,21 @@ class Progress:
             data = self.data or {}
             return dict(message=self.message, busy=self.busy, saved=bool(self.data),
                         vacancy=data.get('vacancy', ''), mode=data.get('mode', 'all'),
-                        count=len(unique(data.get('rows', []))), reviewed=len(data.get('done', [])),
+                        platform=data.get('platform', 'occ'), action=data.get('action', 'new'),
+                        count=row_count(data), reviewed=len(data.get('done', [])),
                         total=len(data.get('selected', [])), pages=data.get('pages', 0),
                         complete=data.get('complete', False), waiting=self.busy and self.awaiting and not self.ready.is_set())
 
-    def begin(self, vacancy, mode, resume=False, consent=False):
+    def previous_rows(self, platform, vacancy, offer):
+        from computrabajo import merge_rows
+        rows = []
+        for path in sorted(self.folder.glob('avance-anterior-*.json')):
+            old = json.loads(path.read_text(encoding='utf-8'))
+            if old.get('complete') and old.get('platform','occ') == platform and old.get('offer_id') == offer:
+                rows = merge_rows(rows, old.get('rows',[]))
+        return rows
+
+    def begin(self, vacancy, mode, resume=False, consent=False, platform='occ', action='new'):
         with self.lock:
             if self.busy:
                 raise ValueError('Ya hay una descarga en marcha.')
@@ -77,6 +91,17 @@ class Progress:
                 if not self.data or self.data.get('complete'):
                     raise ValueError('No hay una descarga pendiente para continuar.')
             else:
+                if platform not in ('occ','computrabajo') or action not in ('new','update'):
+                    raise ValueError('Elige la plataforma y el tipo de descarga.')
+                if platform == 'computrabajo' and mode != 'all':
+                    raise ValueError('Computrabajo permite descargar todos los candidatos.')
+                if platform == 'occ' and action != 'new':
+                    raise ValueError('Actualizar Excel está disponible para Computrabajo.')
+                if action == 'update':
+                    histories = [self.data] if self.data else []
+                    histories += [json.loads(x.read_text(encoding='utf-8')) for x in self.folder.glob('avance-anterior-*.json')]
+                    if not any(x.get('complete') and x.get('platform') == platform and x.get('rows') for x in histories):
+                        raise ValueError('Primero descarga una vacante de Computrabajo en esta computadora. Después podrás actualizar su Excel.')
                 if self.data and not self.data.get('complete'):
                     raise ValueError('Primero continúa la descarga pendiente. Tu avance está protegido.')
                 if self.path.exists() and self.data is None:
@@ -90,23 +115,27 @@ class Progress:
                     # Conservar también los trabajos anteriores y sus Excel.
                     archive = self.folder / ('avance-anterior-' + str(time.time_ns()) + '.json')
                     archive.write_text(json.dumps(self.data, ensure_ascii=False), encoding='utf-8')
-                self.data = dict(version=1, vacancy=vacancy, mode=mode, candidates=[], selected=[],
+                self.data = dict(version=1, vacancy=vacancy, mode=mode, platform=platform, action=action, candidates=[], selected=[],
                                  rows=[], done=[], pages=0, listed=False, complete=False, skipped=0)
                 self.save()
             self.busy = True
             self.awaiting = False
             self.ready.clear()
             self.pause.clear()
-            self.message = 'Abriendo OCC. Espera a que aparezca su ventana.'
-            threading.Thread(target=collect, args=(self,), daemon=True).start()
+            self.message = 'Abriendo la plataforma. Espera a que aparezca su ventana.'
+            worker = collect
+            if self.data.get('platform') == 'computrabajo':
+                from computrabajo import collect as worker
+            threading.Thread(target=worker, args=(self,), daemon=True).start()
 
     def excel(self):
         with self.lock:
             if not self.data or not self.data['rows']:
                 raise ValueError('Todavía no hay candidatos recopilados para descargar.')
             rows = copy.deepcopy(self.data['rows'])
+            deduplicate = self.data.get('platform') != 'computrabajo'
         destination = self.folder / ('postulados-' + str(time.time_ns()) + '.xlsx')
-        export_xlsx(rows, destination)
+        export_xlsx(rows, destination, deduplicate=deduplicate)
         return destination
 
 
@@ -269,7 +298,8 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError('Solicitud no válida.')
             p = self.server.progress
             if self.path == '/iniciar':
-                p.begin(data.get('vacancy', ''), data.get('mode', ''), consent=data.get('consent') is True)
+                p.begin(data.get('vacancy', ''), data.get('mode', ''), consent=data.get('consent') is True,
+                        platform=data.get('platform','occ'), action=data.get('action','new'))
             elif self.path == '/continuar':
                 p.begin('', '', resume=True)
             elif self.path == '/listo':

@@ -1,4 +1,4 @@
-# Candidatos de OCC
+# Candidatos de OCC y Computrabajo
 
 Descarga los candidatos de una vacante en Excel desde una pantalla sencilla, con avance guardado para continuar después de una interrupción.
 
@@ -18,14 +18,22 @@ La herramienta incluye componentes de código abierto y sus avisos de licencia e
 
 ## Descargar candidatos
 
-1. Escribe el **nombre de la vacante**.
-2. Elige **Todos**, **Solo vistos** o **Solo no vistos**.
+1. Elige **OCC** o **Computrabajo** y escribe el **nombre de la vacante**.
+2. En OCC elige **Todos**, **Solo vistos** o **Solo no vistos**. En Computrabajo elige **Descargar todos en un Excel nuevo** o **Actualizar mi Excel anterior**.
 3. Pulsa **Comenzar descarga**.
-4. En la ventana de OCC que se abra, inicia sesión y selecciona esa misma vacante.
+4. En la ventana que se abra, inicia sesión y abre los candidatos de esa misma vacante.
 5. Vuelve a la pantalla y pulsa **Ya estoy en la vacante**.
 6. Al terminar, pulsa **Descargar Excel**.
 
 El nombre escrito identifica la vacante en el Excel; no cambia por sí solo la vacante seleccionada en OCC. No navegues a otras páginas de OCC mientras la herramienta trabaja.
+
+### Actualizar el Excel de Computrabajo
+
+Después de tu primera descarga, elige **Actualizar mi Excel anterior** y abre la misma vacante. La herramienta recorre sus páginas y las listas de recibidos, seleccionados, finalistas y descartados disponibles; no incluye candidatos sugeridos que no se postularon. Agrega candidatos nuevos y actualiza los ya recopilados por su identificador del portal, conservando los anteriores aunque ya no aparezcan en la lista.
+
+La actualización utiliza el historial guardado en esta computadora y genera una copia nueva del Excel. No sobrescribe archivos ni importa modificaciones hechas manualmente en Excel. Si necesitas actualizar desde otra computadora, conserva la carpeta de datos y solicita ayuda antes de trasladarla.
+
+Computrabajo no mostró un indicador inequívoco de visto/no visto en la lista revisada: su columna se exporta como **No identificado**, sin inventar el estado. Abrir perfiles puede marcarlos como vistos. El nombre, teléfono cuando está disponible, experiencia, formación, habilidades e idiomas se leen del perfil visible; no se envían mensajes ni se consumen créditos.
 
 ## Si se interrumpe
 

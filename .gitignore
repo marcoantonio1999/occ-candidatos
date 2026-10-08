@@ -6,6 +6,7 @@ dist/
 *.spec
 resultados/
 perfil-occ/
+perfil-computrabajo/
 .herramienta.lock
 *.log
 *.xlsx

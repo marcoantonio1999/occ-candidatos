@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-VERSION = '1.0.0'
+VERSION = '1.1.0'
 PAYLOAD = Path(__file__).resolve().parent / 'OCC-Candidatos.exe'
 
 
@@ -34,7 +34,7 @@ def shortcuts(target):
         $link = $shell.CreateShortcut((Join-Path $place 'Candidatos de OCC.lnk'))
         $link.TargetPath = $env:OCC_INSTALL_APP
         $link.WorkingDirectory = $env:OCC_INSTALL_FOLDER
-        $link.Description = 'Descargar candidatos de OCC en Excel'
+        $link.Description = 'Descargar candidatos de OCC y Computrabajo en Excel'
         $link.Save()
     }
     '''
@@ -46,7 +46,7 @@ def shortcuts(target):
 
 def main():
     message = ctypes.windll.user32.MessageBoxW
-    if message(None, 'Se instalará Candidatos de OCC y se creará un acceso en tu escritorio.\n\nNo necesitas instalar Python. Tus candidatos y tu avance se guardan únicamente en esta computadora.\n\nPulsa Aceptar para instalar.', 'Instalar Candidatos de OCC', 0x41) != 1:
+    if message(None, 'Se instalará Candidatos de OCC y Computrabajo y se actualizará el acceso de tu escritorio.\n\nNo necesitas instalar Python. Tus candidatos y tu avance anterior se conservan en esta computadora.\n\nPulsa Aceptar para instalar.', 'Instalar Candidatos', 0x41) != 1:
         return
     folder = Path(os.environ['LOCALAPPDATA']) / 'OCC-Candidatos'
     try:

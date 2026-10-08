@@ -110,9 +110,9 @@ def select_candidates(items, mode, limit=0):
         seen_urls.add(item['url']); chosen.append({**item, 'review_state': state})
     return chosen[:limit] if limit else chosen
 
-def export_xlsx(rows, destination):
+def export_xlsx(rows, destination, deduplicate=True):
     """OOXML básico, solo texto: los nombres no se interpretan como fórmulas."""
-    values = [HEADERS] + [[r.get(key, 'OCC' if key == 'platform' else '') for key in ROW_KEYS] for r in unique(rows)]
+    values = [HEADERS] + [[r.get(key, 'OCC' if key == 'platform' else '') for key in ROW_KEYS] for r in (unique(rows) if deduplicate else rows)]
     body = []
     for i, row in enumerate(values, 1):
         def xml_text(value):
