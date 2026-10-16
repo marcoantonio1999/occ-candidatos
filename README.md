@@ -4,7 +4,7 @@ Descarga los candidatos de una vacante en Excel desde una pantalla sencilla, con
 
 ## Descargar e instalar
 
-**Versión 1.2.0 con Indeed (16/10/2026), pendiente de publicación:** el instalador local `dist/OCC-Candidatos-Instalador.exe` incluye OCC, Computrabajo e Indeed y conserva el avance anterior. Es autocontenido: no requiere Python. El enlace público de abajo todavía apunta a la versión 1.1.0, sin Indeed; no se ha podido actualizar por falta de permisos de escritura en GitHub.
+**Versión 1.2.0 con Indeed (16/10/2026):** el instalador incluye OCC, Computrabajo e Indeed y conserva el avance anterior. Es autocontenido: no requiere Python.
 
 [![Descargar instalador para Windows](https://img.shields.io/badge/⬇_Descargar_instalador_para_Windows-367454?style=for-the-badge)](https://github.com/marcoantonio1999/occ-candidatos/releases/latest/download/OCC-Candidatos-Instalador.exe)
 
