@@ -4,7 +4,7 @@ Set-Location -LiteralPath $PSScriptRoot
 & $Python -m unittest discover -p 'test*.py'
 if ($LASTEXITCODE -ne 0) { throw 'Fallaron las pruebas.' }
 if (-not $SkipAppBuild) {
-    & $Python -m PyInstaller --noconfirm --clean --onefile --noconsole --name OCC-Candidatos --add-data 'pantalla.html;.' --collect-all selenium occ_app.py
+    & $Python -m PyInstaller --noconfirm --clean --onefile --noconsole --name OCC-Candidatos --add-data 'pantalla.html;.' --collect-all selenium --collect-all pypdf occ_app.py
     if ($LASTEXITCODE -ne 0) { throw 'No se pudo construir la aplicacion.' }
 }
 $buildFolder = Join-Path $PSScriptRoot 'release-staging'

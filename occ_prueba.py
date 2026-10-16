@@ -112,7 +112,11 @@ def select_candidates(items, mode, limit=0):
 
 def export_xlsx(rows, destination, deduplicate=True):
     """OOXML básico, solo texto: los nombres no se interpretan como fórmulas."""
-    values = [HEADERS] + [[r.get(key, 'OCC' if key == 'platform' else '') for key in ROW_KEYS] for r in (unique(rows) if deduplicate else rows)]
+    headers, keys = list(HEADERS), list(ROW_KEYS)
+    if any(row.get('platform') == 'Indeed' for row in rows):
+        headers += ['Archivo CV (carpeta resultados)', 'Lectura del CV', 'Texto completo del CV']
+        keys += ['cv_file', 'cv_status', 'cv_text']
+    values = [headers] + [[r.get(key, 'OCC' if key == 'platform' else '') for key in keys] for r in (unique(rows) if deduplicate else rows)]
     body = []
     for i, row in enumerate(values, 1):
         def xml_text(value):
@@ -121,7 +125,7 @@ def export_xlsx(rows, destination, deduplicate=True):
             return escape(value)
         cells = ''.join(f'<c r="{chr(65+j)}{i}" t="inlineStr" s="1"><is><t xml:space="preserve">{xml_text(value)}</t></is></c>' for j, value in enumerate(row))
         body.append(f'<row r="{i}">{cells}</row>')
-    sheet = '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="1" width="35" customWidth="1"/><col min="2" max="2" width="16" customWidth="1"/><col min="3" max="3" width="35" customWidth="1"/><col min="4" max="4" width="15" customWidth="1"/><col min="5" max="13" width="45" customWidth="1"/><col min="14" max="14" width="60" customWidth="1"/></cols><sheetData>' + ''.join(body) + f'</sheetData><autoFilter ref="A1:N{len(values)}"/></worksheet>'
+    sheet = '<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="1" width="35" customWidth="1"/><col min="2" max="2" width="16" customWidth="1"/><col min="3" max="3" width="35" customWidth="1"/><col min="4" max="4" width="15" customWidth="1"/><col min="5" max="13" width="45" customWidth="1"/><col min="14" max="17" width="60" customWidth="1"/></cols><sheetData>' + ''.join(body) + f'</sheetData><autoFilter ref="A1:{chr(64+len(headers))}{len(values)}"/></worksheet>'
     with zipfile.ZipFile(destination, 'w', zipfile.ZIP_DEFLATED) as archive:
         archive.writestr('[Content_Types].xml', '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>')
         archive.writestr('_rels/.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>')

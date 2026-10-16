@@ -16,7 +16,7 @@ ASSETS = Path(__file__).resolve().parent
 
 def row_count(data):
     rows = data.get('rows', [])
-    return len(rows if data.get('platform') == 'computrabajo' else unique(rows))
+    return len(rows if data.get('platform') in ('computrabajo', 'indeed') else unique(rows))
 
 
 class Progress:
@@ -75,7 +75,10 @@ class Progress:
                         complete=data.get('complete', False), waiting=self.busy and self.awaiting and not self.ready.is_set())
 
     def previous_rows(self, platform, vacancy, offer):
-        from computrabajo import merge_rows
+        if platform == 'indeed':
+            from indeed import merge_rows
+        else:
+            from computrabajo import merge_rows
         rows = []
         for path in sorted(self.folder.glob('avance-anterior-*.json')):
             old = json.loads(path.read_text(encoding='utf-8'))
@@ -91,17 +94,17 @@ class Progress:
                 if not self.data or self.data.get('complete'):
                     raise ValueError('No hay una descarga pendiente para continuar.')
             else:
-                if platform not in ('occ','computrabajo') or action not in ('new','update'):
+                if platform not in ('occ','computrabajo','indeed') or action not in ('new','update'):
                     raise ValueError('Elige la plataforma y el tipo de descarga.')
-                if platform == 'computrabajo' and mode != 'all':
-                    raise ValueError('Computrabajo permite descargar todos los candidatos.')
+                if platform in ('computrabajo', 'indeed') and mode != 'all':
+                    raise ValueError('En esta plataforma elige todos los candidatos; conservamos su estado original sin suponer visto/no visto.')
                 if platform == 'occ' and action != 'new':
-                    raise ValueError('Actualizar Excel está disponible para Computrabajo.')
+                    raise ValueError('Actualizar Excel está disponible para Computrabajo e Indeed.')
                 if action == 'update':
                     histories = [self.data] if self.data else []
                     histories += [json.loads(x.read_text(encoding='utf-8')) for x in self.folder.glob('avance-anterior-*.json')]
                     if not any(x.get('complete') and x.get('platform') == platform and x.get('rows') for x in histories):
-                        raise ValueError('Primero descarga una vacante de Computrabajo en esta computadora. Después podrás actualizar su Excel.')
+                        raise ValueError('Primero descarga una vacante de esta plataforma en esta computadora. Después podrás actualizar su Excel.')
                 if self.data and not self.data.get('complete'):
                     raise ValueError('Primero continúa la descarga pendiente. Tu avance está protegido.')
                 if self.path.exists() and self.data is None:
@@ -126,6 +129,8 @@ class Progress:
             worker = collect
             if self.data.get('platform') == 'computrabajo':
                 from computrabajo import collect as worker
+            elif self.data.get('platform') == 'indeed':
+                from indeed import collect as worker
             threading.Thread(target=worker, args=(self,), daemon=True).start()
 
     def excel(self):
@@ -133,7 +138,7 @@ class Progress:
             if not self.data or not self.data['rows']:
                 raise ValueError('Todavía no hay candidatos recopilados para descargar.')
             rows = copy.deepcopy(self.data['rows'])
-            deduplicate = self.data.get('platform') != 'computrabajo'
+            deduplicate = self.data.get('platform') not in ('computrabajo', 'indeed')
         destination = self.folder / ('postulados-' + str(time.time_ns()) + '.xlsx')
         export_xlsx(rows, destination, deduplicate=deduplicate)
         return destination
@@ -358,9 +363,13 @@ if __name__ == '__main__':
         # Verificar el ejecutable empaquetado sin abrir OCC ni acceder a candidatos.
         from selenium import webdriver
         from selenium.webdriver.common.selenium_manager import SeleniumManager
+        import indeed
+        import pypdf
         assert webdriver.ChromeOptions() is not None
         assert SeleniumManager()._get_binary().exists()
         assert 'Candidatos de OCC' in (ASSETS / 'pantalla.html').read_text(encoding='utf-8')
+        assert '<option value="indeed">Indeed</option>' in (ASSETS / 'pantalla.html').read_text(encoding='utf-8')
+        assert indeed.URL.startswith('https://employers.indeed.com/')
         Path(sys.argv[2]).write_text('OK: pantalla y navegador incluidos', encoding='utf-8')
     else:
         try:

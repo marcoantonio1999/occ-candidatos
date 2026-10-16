@@ -42,7 +42,7 @@ try {
     $venvArguments = @($selectedPython.Args) + @('-m', 'venv', '.venv')
     & $selectedPython.Path @venvArguments
     if ($LASTEXITCODE -ne 0) { throw 'No se pudo crear el entorno.' }
-    & .\.venv\Scripts\python.exe -m pip install 'selenium>=4.30,<5' *> (Join-Path $PSScriptRoot 'preparacion.log')
+    & .\.venv\Scripts\python.exe -m pip install -r (Join-Path $PSScriptRoot 'requirements.txt') *> (Join-Path $PSScriptRoot 'preparacion.log')
     if ($LASTEXITCODE -ne 0) { throw 'No se pudo preparar la herramienta. Revisa tu conexion a internet y vuelve a intentar.' }
     Write-Host 'Listo. Ya puedes usar ABRIR.'
     exit 0

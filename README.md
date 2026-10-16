@@ -1,13 +1,15 @@
-# Candidatos de OCC y Computrabajo
+# Candidatos de OCC, Computrabajo e Indeed
 
 Descarga los candidatos de una vacante en Excel desde una pantalla sencilla, con avance guardado para continuar después de una interrupción.
 
 ## Descargar e instalar
 
+**Versión 1.2.0 con Indeed (16/10/2026):** el instalador incluye OCC, Computrabajo e Indeed y conserva el avance anterior. Es autocontenido: no requiere Python.
+
 [![Descargar instalador para Windows](https://img.shields.io/badge/⬇_Descargar_instalador_para_Windows-367454?style=for-the-badge)](https://github.com/marcoantonio1999/occ-candidatos/releases/latest/download/OCC-Candidatos-Instalador.exe)
 
 1. Pulsa el botón de descarga y abre **OCC-Candidatos-Instalador.exe**.
-2. Confirma la instalación. Se abrirá la pantalla de **Candidatos de OCC**.
+2. Confirma la instalación. Se abrirá la pantalla de **Candidatos de OCC, Computrabajo e Indeed**.
 3. Para usarlo otro día, abre **Candidatos de OCC** desde el escritorio.
 
 **No necesitas instalar Python ni escribir comandos.** Necesitas Windows 10/11 de 64 bits, Google Chrome y conexión a internet. La primera apertura de OCC puede tardar mientras se prepara el navegador.
@@ -18,8 +20,8 @@ La herramienta incluye componentes de código abierto y sus avisos de licencia e
 
 ## Descargar candidatos
 
-1. Elige **OCC** o **Computrabajo** y escribe el **nombre de la vacante**.
-2. En OCC elige **Todos**, **Solo vistos** o **Solo no vistos**. En Computrabajo elige **Descargar todos en un Excel nuevo** o **Actualizar mi Excel anterior**.
+1. Elige **OCC**, **Computrabajo** o **Indeed** y escribe el **nombre de la vacante**.
+2. En OCC elige **Todos**, **Solo vistos** o **Solo no vistos**. En Computrabajo e Indeed elige **Descargar todos en un Excel nuevo** o **Actualizar mi Excel anterior**.
 3. Pulsa **Comenzar descarga**.
 4. En la ventana que se abra, inicia sesión y abre los candidatos de esa misma vacante.
 5. Vuelve a la pantalla y pulsa **Ya estoy en la vacante**.
@@ -34,6 +36,18 @@ Después de tu primera descarga, elige **Actualizar mi Excel anterior** y abre l
 La actualización utiliza el historial guardado en esta computadora y genera una copia nueva del Excel. No sobrescribe archivos ni importa modificaciones hechas manualmente en Excel. Si necesitas actualizar desde otra computadora, conserva la carpeta de datos y solicita ayuda antes de trasladarla.
 
 Computrabajo no mostró un indicador inequívoco de visto/no visto en la lista revisada: su columna se exporta como **No identificado**, sin inventar el estado. Abrir perfiles puede marcarlos como vistos. El nombre, teléfono cuando está disponible, experiencia, formación, habilidades e idiomas se leen del perfil visible; no se envían mensajes ni se consumen créditos.
+
+### Indeed
+
+Abre **Administrar a los candidatos → Todas las postulaciones** de una sola vacante y pulsa **Ya estoy en la vacante**. La herramienta recorre las páginas y comprueba su total antes de abrir los perfiles. Guarda el estado original que muestra Indeed (por ejemplo, Nuevos o En evaluación), sin deducir visto/no visto. Abrir perfiles puede registrarlos como revisados; se pide aceptar ese aviso antes de comenzar.
+
+Lee únicamente lo accesible con tu sesión: nombre, teléfono mostrado por el panel **Llamar** (no inicia ninguna llamada) y el enlace individual **Descargar CV**. No usa endpoints privados, no extrae cookies, no fuerza el botón de exportación masiva deshabilitado, no evade verificaciones ni consume desbloqueos. Ante un problema de sesión/conexión se guarda el avance y se espera una continuación manual.
+
+Los CV quedan en `resultados/cvs-indeed/<vacante>/<postulación>/`. Excel agrega su ubicación, el resultado de lectura y el texto extraído. Los PDF escaneados, protegidos o sin texto se conservan y se señalan para revisión; no se inventan secciones ni se envían a OCR/IA de terceros. Los documentos no PDF también quedan guardados, sin afirmar que se leyó su contenido.
+
+Las postulaciones retiradas se incluyen con el nombre y el estado visible, sin inventar teléfono, CV o enlace de perfil. Indeed no expone un ID de postulante en esas filas: se identifican como observaciones de esa descarga, no como identidades confirmadas. Al actualizar, esas observaciones se refrescan con la lista actual; las anteriores permanecen en el avance archivado y el Excel anterior. Los perfiles con ID sí conservan su historial y se actualizan por ID, nunca por nombre o teléfono.
+
+Cada plataforma usa su propia sesión local de Chrome. Iniciar sesión en el navegador de Codex no inicia automáticamente la sesión de Chrome de esta herramienta. No se copian credenciales entre navegadores. Mantén privados tanto el Excel como la carpeta de CV.
 
 ## Si se interrumpe
 
