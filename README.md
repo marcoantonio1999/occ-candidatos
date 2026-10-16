@@ -4,7 +4,7 @@ Descarga los candidatos de una vacante en Excel desde una pantalla sencilla, con
 
 ## Descargar e instalar
 
-**Versión 1.2.0 con Indeed (16/10/2026):** el instalador incluye OCC, Computrabajo e Indeed y conserva el avance anterior. Es autocontenido: no requiere Python.
+**Versión 1.2.1 con Indeed (16/10/2026):** el instalador incluye OCC, Computrabajo e Indeed y conserva el avance anterior. Es autocontenido: no requiere Python.
 
 [![Descargar instalador para Windows](https://img.shields.io/badge/⬇_Descargar_instalador_para_Windows-367454?style=for-the-badge)](https://github.com/marcoantonio1999/occ-candidatos/releases/latest/download/OCC-Candidatos-Instalador.exe)
 
@@ -50,6 +50,8 @@ Las postulaciones retiradas se incluyen con el nombre y el estado visible, sin i
 Cada plataforma usa su propia sesión local de Chrome. Iniciar sesión en el navegador de Codex no inicia automáticamente la sesión de Chrome de esta herramienta. No se copian credenciales entre navegadores. Mantén privados tanto el Excel como la carpeta de CV.
 
 ## Si se interrumpe
+
+Si una descarga pendiente bloquea la selección de Indeed, pulsa **Guardar pendiente y elegir otra plataforma**. El avance se conserva sin iniciar otra descarga; después puedes seleccionarlo en **Pendientes guardados → Recuperar pendiente** y continuar. Si acabas de actualizar y aún aparece la pantalla anterior, cierra la aplicación anterior (no solo la pestaña) y vuelve a abrir el acceso del escritorio. La versión nueva muestra **1.2.1** arriba.
 
 Abre **Candidatos de OCC** de nuevo y pulsa **Continuar descarga**. Lo que ya se guardó no se vuelve a recopilar. Si estabas revisando páginas, la herramienta puede volver a recorrer la lista para completar lo pendiente.
 

@@ -3,6 +3,7 @@ import copy
 import json
 import os
 import secrets
+import re
 import threading
 import time
 import webbrowser
@@ -13,6 +14,7 @@ from urllib.parse import urlsplit
 from occ_prueba import ROOT, URL, DISCOVER, norm, allowed_profile, extract_profile, extract_sections, select_candidates, unique, export_xlsx
 
 ASSETS = Path(__file__).resolve().parent
+VERSION = '1.2.1'
 
 def row_count(data):
     rows = data.get('rows', [])
@@ -67,12 +69,52 @@ class Progress:
     def status(self):
         with self.lock:
             data = self.data or {}
-            return dict(message=self.message, busy=self.busy, saved=bool(self.data),
+            pending = []
+            for path in sorted(self.folder.glob('pendiente-*.json')):
+                try:
+                    old = json.loads(path.read_text(encoding='utf-8'))
+                    pending.append(dict(id=path.stem, vacancy=old['vacancy'], platform=old.get('platform', 'occ')))
+                except (OSError, ValueError, KeyError, TypeError):
+                    continue
+            return dict(version=VERSION, pending=pending, message=self.message, busy=self.busy, saved=bool(self.data),
                         vacancy=data.get('vacancy', ''), mode=data.get('mode', 'all'),
                         platform=data.get('platform', 'occ'), action=data.get('action', 'new'),
                         count=row_count(data), reviewed=len(data.get('done', [])),
                         total=len(data.get('selected', [])), pages=data.get('pages', 0),
                         complete=data.get('complete', False), waiting=self.busy and self.awaiting and not self.ready.is_set())
+
+    def park(self):
+        """Conservar el trabajo pendiente sin obligar a terminarlo antes de otro."""
+        with self.lock:
+            if self.busy:
+                raise ValueError('Primero pulsa Pausar y guardar y espera a que termine.')
+            if not self.data:
+                raise ValueError('No hay un avance para guardar aparte.')
+            self.save()
+            destination = self.folder / ('pendiente-' + secrets.token_hex(16) + '.json')
+            backup = self.path.with_suffix('.bak')
+            if backup.exists():
+                os.replace(backup, destination.with_suffix('.bak'))
+            os.replace(self.path, destination)
+            self.data = None
+            self.message = 'Avance anterior conservado. Elige Indeed u otra plataforma para una nueva descarga.'
+
+    def restore(self, identifier):
+        with self.lock:
+            if self.busy or self.data or self.path.exists():
+                raise ValueError('Guarda aparte el avance actual antes de recuperar otro.')
+            if not isinstance(identifier, str) or not re.fullmatch(r'pendiente-[a-f0-9]{32}', identifier):
+                raise ValueError('Pendiente no válido.')
+            source = self.folder / (identifier + '.json')
+            try:
+                data = json.loads(source.read_text(encoding='utf-8'))
+                if data.get('version') != 1 or data.get('mode') not in ('seen', 'unseen', 'all') or not all(isinstance(data.get(k), list) for k in ('candidates', 'rows', 'done')):
+                    raise ValueError('Formato inválido')
+            except (OSError, ValueError, TypeError, AttributeError):
+                raise ValueError('No pudimos recuperar ese avance. El archivo se conserva.')
+            os.replace(source, self.path)
+            self.data = data
+            self.message = 'Avance recuperado. Pulsa Continuar descarga cuando quieras retomarlo.'
 
     def previous_rows(self, platform, vacancy, offer):
         if platform == 'indeed':
@@ -307,6 +349,10 @@ class Handler(BaseHTTPRequestHandler):
                         platform=data.get('platform','occ'), action=data.get('action','new'))
             elif self.path == '/continuar':
                 p.begin('', '', resume=True)
+            elif self.path == '/guardar-aparte':
+                p.park()
+            elif self.path == '/recuperar':
+                p.restore(data.get('id'))
             elif self.path == '/listo':
                 p.ready.set()
             elif self.path == '/pausar':
@@ -334,6 +380,9 @@ def main():
         lockfile.seek(1)
         previous = lockfile.read().decode('ascii', errors='ignore').strip()
         if previous.startswith('http://127.0.0.1:') and previous.endswith('/'):
+            # No redirigir silenciosamente una actualización hacia el programa viejo.
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(None, 'La herramienta ya está abierta. Si acabas de actualizar, cierra la aplicación anterior desde el Administrador de tareas y abre de nuevo el acceso del escritorio. No borres la carpeta de datos: tu avance se conserva.', 'Candidatos · aplicación abierta', 0x40)
             webbrowser.open(previous)
         print('La herramienta ya esta abierta. Vuelve a su pantalla para continuar.')
         lockfile.close()

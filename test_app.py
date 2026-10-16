@@ -11,6 +11,42 @@ from occ_app import Progress, Handler, collect
 
 
 class LocalAppTests(unittest.TestCase):
+    def test_park_unlocks_platform_without_losing_progress_after_restart(self):
+        with tempfile.TemporaryDirectory() as folder:
+            p = self.make_progress(folder)
+            p.data['rows'] = [{'name': 'Persona de prueba', 'phone': ''}]
+            p.data['done'] = ['profile-a']
+            p.save()
+            p.park()
+            restarted = Progress(folder)
+            self.assertFalse(restarted.status()['saved'])
+            pending = restarted.status()['pending']
+            self.assertEqual(len(pending), 1)
+            with patch('occ_app.threading.Thread') as worker:
+                restarted.begin('Otra vacante', 'all', consent=True, platform='indeed')
+                worker.return_value.start.assert_called_once()
+            self.assertEqual(restarted.data['platform'], 'indeed')
+            restarted.busy = False
+            restarted.park()
+            restarted.restore(pending[0]['id'])
+            self.assertEqual(restarted.data['done'], ['profile-a'])
+            self.assertEqual(Progress(folder).data['rows'], [{'name': 'Persona de prueba', 'phone': ''}])
+            self.assertEqual(len(restarted.status()['pending']), 1)
+
+    def test_pending_actions_reject_busy_and_unsafe_paths(self):
+        with tempfile.TemporaryDirectory() as folder:
+            p = self.make_progress(folder)
+            p.save()
+            p.busy = True
+            with self.assertRaises(ValueError):
+                p.park()
+            p.busy = False
+            p.park()
+            with self.assertRaises(ValueError):
+                p.restore('../avance')
+            self.assertFalse(p.status()['saved'])
+            self.assertEqual(len(p.status()['pending']), 1)
+
     def make_progress(self, folder):
         p = Progress(folder)
         p.data = dict(version=1, vacancy='Auxiliar', mode='all', candidates=[], selected=[],
