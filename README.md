@@ -4,6 +4,18 @@ Descarga los candidatos de una vacante en Excel desde una pantalla sencilla, con
 
 ## Descargar e instalar
 
+### Extensión manual para Indeed (nueva)
+
+[Descargar extensión de captura manual para Vero](https://github.com/marcoantonio1999/occ-candidatos/releases/download/extension-v1.0.0/Extension-Candidatos-Manual-1.0.0.zip)
+
+Descomprime el ZIP y sigue **LEEME.md**: en Chrome de escritorio abre `chrome://extensions`, activa Modo de desarrollador y usa **Cargar descomprimida** sobre la carpeta con `manifest.json`. Si las políticas de tu equipo no lo permiten, solicita autorización; no las desactives.
+
+Vero abre cada perfil manualmente y pulsa **Agregar este candidato**. Se conserva el avance local, no se duplican postulaciones y se puede exportar a Excel o respaldar/restaurar en JSON. No usa Selenium, no navega automáticamente ni intenta resolver verificaciones. No lee CV en PDF ni descarga archivos; los datos no visibles se pueden completar a mano. Consulta [las instrucciones completas](extension/LEEME.md).
+
+La extensión no está publicada en Chrome Web Store ni es oficial de Indeed. Las pruebas usan datos ficticios; no se recopilan postulaciones reales para validar. El instalador anterior de abajo se conserva para OCC/Computrabajo: la prueba de acceso automático a Indeed mostró una verificación de Cloudflare, por lo que no se garantiza ese flujo.
+
+### Instalador de escritorio anterior
+
 **Versión 1.2.1 con Indeed (16/10/2026):** el instalador incluye OCC, Computrabajo e Indeed y conserva el avance anterior. Es autocontenido: no requiere Python.
 
 [![Descargar instalador para Windows](https://img.shields.io/badge/⬇_Descargar_instalador_para_Windows-367454?style=for-the-badge)](https://github.com/marcoantonio1999/occ-candidatos/releases/latest/download/OCC-Candidatos-Instalador.exe)
@@ -73,5 +85,7 @@ Los resultados son datos personales: compártelos únicamente con las personas a
 El instalador guarda la aplicación, su sesión y su progreso en `%LOCALAPPDATA%\OCC-Candidatos`, sin requerir permisos de administrador. La pantalla escucha únicamente en `127.0.0.1`, valida el host y utiliza una clave temporal para sus operaciones. El avance JSON se guarda mediante reemplazo atómico, sincronización a disco y copia anterior de recuperación.
 
 Para desarrollar: instala `requirements-build.txt`, ejecuta `python -m unittest discover -p "test*.py"` y usa `build-installer.ps1` en Windows. La aplicación y su instalador autocontenido se construyen con PyInstaller. El instalador conserva los datos existentes, crea accesos en el escritorio y en Inicio, y abre la pantalla. No hay descarga de candidatos durante las pruebas automatizadas.
+
+Extensión: `node --test extension-tests/extension.test.mjs`; el ZIP se genera con `build-extension.ps1`. El directorio `extension-tests/` es solo de desarrollo, nunca forma parte del ZIP ni se instala con la extensión.
 
 </details>

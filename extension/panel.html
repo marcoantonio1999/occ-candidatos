@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Candidatos BPower · Captura manual</title><link rel="stylesheet" href="panel.css"></head>
+<body><main>
+  <header><div class="brand" aria-hidden="true">B</div><div><p class="eyebrow">BPOWER · RECURSOS HUMANOS</p><h1>Candidatos</h1><p class="sub">Captura manual · v1.0.0</p></div></header>
+  <p id="message" class="status" role="status">Cargando el avance local…</p>
+  <section aria-labelledby="addTitle"><div class="section-head"><h2 id="addTitle">Agregar perfil abierto</h2><span class="badge">Un candidato a la vez</span></div>
+    <label for="vacancy">Vacante <span aria-hidden="true">*</span></label><input id="vacancy" maxlength="200" placeholder="Ej. Auxiliar administrativo" autocomplete="off" required>
+    <button id="capture" class="primary">Agregar este candidato</button>
+    <p class="help">Abre un perfil individual en Indeed y pulsa el botón. Solo lee lo visible; no navega, llama ni descarga CV. Si aparece una verificación, no agrega nada.</p>
+    <div class="actions"><button id="manual">Completar datos manualmente</button><button id="openPanel">Abrir panel amplio</button></div><p class="help">El panel amplio sirve para revisar y exportar. Para capturar, usa el icono de la extensión sobre el perfil de Indeed.</p>
+  </section>
+  <section id="editor" hidden aria-labelledby="editorTitle"><h2 id="editorTitle">Revisar candidato</h2><p id="captureNotice" class="help"></p>
+    <form id="candidateForm" novalidate>
+      <label for="name">Nombre completo *</label><input id="name" maxlength="200" required>
+      <div class="grid"><div><label for="phone">Teléfono</label><input id="phone" type="tel" maxlength="80"></div><div><label for="email">Correo</label><input id="email" type="email" maxlength="200"></div></div>
+      <label for="recordVacancy">Vacante *</label><input id="recordVacancy" maxlength="200" required>
+      <label for="sourceUrl">Enlace del perfil individual *</label><input id="sourceUrl" type="url" placeholder="https://employers.indeed.com/candidates/view?..." required>
+      <label for="reviewState">Estado mostrado en Indeed</label><input id="reviewState" maxlength="200" placeholder="Solo si lo muestra el perfil">
+      <details><summary>Experiencia, educación y notas</summary>
+        <label for="experience">Experiencia</label><textarea id="experience" maxlength="12000" rows="4"></textarea>
+        <label for="education">Educación</label><textarea id="education" maxlength="12000" rows="3"></textarea>
+        <label for="skills">Habilidades</label><textarea id="skills" maxlength="6000" rows="3"></textarea>
+        <label for="languages">Idiomas</label><textarea id="languages" maxlength="3000" rows="2"></textarea>
+        <label for="notes">Notas</label><textarea id="notes" maxlength="12000" rows="3"></textarea>
+      </details>
+      <p id="draftState" class="help" aria-live="polite">Los cambios del formulario se guardan como borrador local.</p>
+      <div class="actions"><button id="save" class="primary" type="submit">Guardar corrección</button><button id="closeEditor" type="button">Cerrar formulario</button></div>
+    </form>
+  </section>
+  <section aria-labelledby="savedTitle"><div class="section-head"><h2 id="savedTitle">Avance guardado</h2><span id="count" class="badge">0 candidatos</span></div>
+    <label for="search">Buscar por nombre o vacante</label><input id="search" type="search" placeholder="Buscar en el avance local">
+    <div class="actions"><button id="excel" class="primary" disabled>Exportar a Excel</button><button id="backup" disabled>Guardar respaldo</button></div>
+    <p class="help">Excel exporta todos los guardados, aunque uses el buscador.</p>
+    <ul id="records" class="records"></ul><p id="empty" class="help">Aún no agregas candidatos. Tu avance aparecerá aquí.</p>
+    <details><summary>Recuperar un respaldo</summary><p class="help">Selecciona el JSON exportado por esta extensión. Los registros existentes no se sobrescriben.</p><label for="backupFile">Archivo de respaldo</label><input id="backupFile" type="file" accept=".json,application/json"><button id="restore" disabled>Importar respaldo</button></details>
+  </section>
+  <footer>Datos guardados solo en este perfil de Chrome, no en sincronización ni servidores. Exporta respaldos regularmente: quitar la extensión borra sus datos locales. No es una extensión oficial de Indeed.</footer>
+</main><script type="module" src="panel.mjs"></script></body></html>
