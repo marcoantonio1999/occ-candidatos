@@ -6,8 +6,8 @@ const local={
 };
 globalThis.chrome={
   storage:{local},runtime:{id:'synthetic-extension',getURL:p=>'chrome-extension://synthetic-extension/'+p,onMessage:{addListener(){}},openOptionsPage:async()=>{}},
-  tabs:{query:async()=>[{id:123,url:'https://employers.indeed.com/candidates/view?id=bbbbbbbbbbbb&legacyJobId=aaaaaaaaaaaa'}]},
-  scripting:{executeScript:async()=>[{result:{id:'indeed:aaaaaaaaaaaa:bbbbbbbbbbbb',url:'https://employers.indeed.com/candidates/view?id=bbbbbbbbbbbb&legacyJobId=aaaaaaaaaaaa',name:'Persona de prueba',phone:'05512345678',notice:'Perfil sintético para validar la interfaz. No son datos reales.'}}]}
+  tabs:{query:async()=>[{id:123,url:globalThis.__qaTabUrl||'https://employers.indeed.com/candidates/view?id=bbbbbbbbbbbb&legacyJobId=aaaaaaaaaaaa'}]},
+  scripting:{executeScript:async()=>[{result:globalThis.__qaCandidate||{id:'indeed:aaaaaaaaaaaa:bbbbbbbbbbbb',url:'https://employers.indeed.com/candidates/view?id=bbbbbbbbbbbb&legacyJobId=aaaaaaaaaaaa',name:'Persona de prueba',phone:'05512345678',notice:'Perfil sintético para validar la interfaz. No son datos reales.'}}]}
 };
 const {handle}=await import('../extension/worker.mjs');
 let queue=Promise.resolve();

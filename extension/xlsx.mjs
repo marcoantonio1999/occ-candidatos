@@ -4,11 +4,11 @@ const enc=new TextEncoder();
 export const COLUMNS=[['name','Nombre',30],['phone','Teléfono',21],['email','Correo',32],['vacancy','Vacante',32],['reviewState','Estado en Indeed',24],['experience','Experiencia',50],['education','Educación',42],['skills','Habilidades',38],['languages','Idiomas',24],['notes','Notas',50],['url','Perfil de origen',65],['createdAt','Agregado',23],['updatedAt','Actualizado',23]];
 const xml=value=>String(value??'').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const crcTable=Array.from({length:256},(_,i)=>{for(let b=0;b<8;b++)i=(i&1)?0xedb88320^(i>>>1):i>>>1;return i>>>0;});
-function crc(bytes){let c=0xffffffff;for(const b of bytes)c=crcTable[(c^b)&255]^(c>>>8);return(c^0xffffffff)>>>0;}
+export function crc(bytes){let c=0xffffffff;for(const b of bytes)c=crcTable[(c^b)&255]^(c>>>8);return(c^0xffffffff)>>>0;}
 function join(parts){const result=new Uint8Array(parts.reduce((n,p)=>n+p.length,0));let pos=0;for(const p of parts){result.set(p,pos);pos+=p.length;}return result;}
 function header(size,entries){const bytes=new Uint8Array(size),d=new DataView(bytes.buffer);for(const[offset,value,width]of entries)width===2?d.setUint16(offset,value,true):d.setUint32(offset,value,true);return bytes;}
-function zip(files){let offset=0;const local=[],central=[];for(const[name,text]of Object.entries(files)){
-  const n=enc.encode(name),b=enc.encode(text),c=crc(b);
+export function zip(files){let offset=0;const local=[],central=[];for(const[name,text]of Object.entries(files)){
+  const n=enc.encode(name),b=text instanceof Uint8Array?text:enc.encode(text),c=crc(b);
   const h=header(30,[[0,0x04034b50,4],[4,20,2],[6,0x800,2],[12,33,2],[14,c,4],[18,b.length,4],[22,b.length,4],[26,n.length,2]]);
   local.push(h,n,b);
   central.push(header(46,[[0,0x02014b50,4],[4,20,2],[6,20,2],[8,0x800,2],[14,33,2],[16,c,4],[20,b.length,4],[24,b.length,4],[28,n.length,2],[42,offset,4]]),n);

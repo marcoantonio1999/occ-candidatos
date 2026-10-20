@@ -14,13 +14,17 @@ Es un instalador independiente de OCC/Computrabajo y de la extensión. [Ver inst
 
 ### Extensión manual para Indeed (nueva)
 
-[Descargar extensión de captura manual para Vero](https://github.com/marcoantonio1999/occ-candidatos/releases/download/extension-v1.0.0/Extension-Candidatos-Manual-1.0.0.zip)
+[Descargar extensión actualizada v1.2.0 para Vero](https://github.com/marcoantonio1999/occ-candidatos/releases/download/extension-v1.2.0/Extension-Candidatos-Manual-1.2.0.zip)
 
 Descomprime el ZIP y sigue **LEEME.md**: en Chrome de escritorio abre `chrome://extensions`, activa Modo de desarrollador y usa **Cargar descomprimida** sobre la carpeta con `manifest.json`. Si las políticas de tu equipo no lo permiten, solicita autorización; no las desactives.
 
 Vero abre cada perfil manualmente y pulsa **Agregar este candidato**. Se conserva el avance local, no se duplican postulaciones y se puede exportar a Excel o respaldar/restaurar en JSON. No usa Selenium, no navega automáticamente ni intenta resolver verificaciones. No lee CV en PDF ni descarga archivos; los datos no visibles se pueden completar a mano. Consulta [las instrucciones completas](extension/LEEME.md).
 
-La extensión no está publicada en Chrome Web Store ni es oficial de Indeed. Las pruebas usan datos ficticios; no se recopilan postulaciones reales para validar. El instalador anterior de abajo se conserva para OCC/Computrabajo: la prueba de acceso automático a Indeed mostró una verificación de Cloudflare, por lo que no se garantiza ese flujo.
+La versión **1.2.0** reconoce también los enlaces nuevos de Indeed sin `legacyJobId`, corrige la lectura del teléfono mostrado en **Llamar** y permite seleccionar/actualizar un mismo Excel desde el panel amplio. Agrega solo postulaciones nuevas y conserva filas, anotaciones y otras hojas. No realiza llamadas ni navega entre candidatos.
+
+**Para actualizar sin perder el avance:** guarda primero un respaldo JSON desde la extensión antigua, reemplaza sus archivos en **la misma carpeta** y pulsa **Recargar** en `chrome://extensions`. Debe mostrar **v1.2.0**. No quites la extensión anterior antes de respaldar. [Instrucciones completas de actualización y límites](extension/LEEME.md).
+
+La extensión no está publicada en Chrome Web Store ni es oficial de Indeed. Las pruebas automáticas usan datos ficticios y la captura básica también se contrastó con un perfil real autorizado, sin descargar CV ni modificar su estado. El instalador anterior de abajo se conserva para OCC/Computrabajo: la prueba de acceso automático a Indeed mostró una verificación de Cloudflare, por lo que no se garantiza ese flujo.
 
 ### Instalador de escritorio anterior
 

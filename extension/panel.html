@@ -1,12 +1,12 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Candidatos BPower · Captura manual</title><link rel="stylesheet" href="panel.css"></head>
 <body><main>
-  <header><div class="brand" aria-hidden="true">B</div><div><p class="eyebrow">BPOWER · RECURSOS HUMANOS</p><h1>Candidatos</h1><p class="sub">Captura manual · v1.0.0</p></div></header>
+  <header><div class="brand" aria-hidden="true">B</div><div><p class="eyebrow">BPOWER · RECURSOS HUMANOS</p><h1>Candidatos</h1><p class="sub">Captura manual · v1.2.0</p></div></header>
   <p id="message" class="status" role="status">Cargando el avance local…</p>
   <section aria-labelledby="addTitle"><div class="section-head"><h2 id="addTitle">Agregar perfil abierto</h2><span class="badge">Un candidato a la vez</span></div>
     <label for="vacancy">Vacante <span aria-hidden="true">*</span></label><input id="vacancy" maxlength="200" placeholder="Ej. Auxiliar administrativo" autocomplete="off" required>
     <button id="capture" class="primary">Agregar este candidato</button>
-    <p class="help">Abre un perfil individual en Indeed y pulsa el botón. Solo lee lo visible; no navega, llama ni descarga CV. Si aparece una verificación, no agrega nada.</p>
+    <p class="help">Abre un perfil individual en Indeed. Para leer el teléfono, muestra primero el cuadro Llamar del candidato y después pulsa Agregar este candidato. No realiza llamadas ni descarga CV. Si ya estaba guardado, solo completa campos vacíos y conserva tus correcciones.</p>
     <div class="actions"><button id="manual">Completar datos manualmente</button><button id="openPanel">Abrir panel amplio</button></div><p class="help">El panel amplio sirve para revisar y exportar. Para capturar, usa el icono de la extensión sobre el perfil de Indeed.</p>
   </section>
   <section id="editor" hidden aria-labelledby="editorTitle"><h2 id="editorTitle">Revisar candidato</h2><p id="captureNotice" class="help"></p>
@@ -29,8 +29,13 @@
   </section>
   <section aria-labelledby="savedTitle"><div class="section-head"><h2 id="savedTitle">Avance guardado</h2><span id="count" class="badge">0 candidatos</span></div>
     <label for="search">Buscar por nombre o vacante</label><input id="search" type="search" placeholder="Buscar en el avance local">
-    <div class="actions"><button id="excel" class="primary" disabled>Exportar a Excel</button><button id="backup" disabled>Guardar respaldo</button></div>
+    <div class="actions"><button id="excel" disabled>Descargar una copia de Excel</button><button id="backup" disabled>Guardar respaldo</button></div>
     <p class="help">Excel exporta todos los guardados, aunque uses el buscador.</p>
+    <div class="file-link" role="group" aria-labelledby="fileTitle"><h2 id="fileTitle">Actualizar el mismo Excel</h2>
+      <p id="linkedFile" class="help" aria-live="polite">Ningún Excel vinculado.</p>
+      <div class="actions"><button id="selectExcel">Seleccionar Excel existente</button><button id="createExcel">Crear Excel vinculado</button><button id="updateExcel" class="primary" disabled>Actualizar este Excel</button></div>
+      <p id="fileHelp" class="help"></p>
+    </div>
     <ul id="records" class="records"></ul><p id="empty" class="help">Aún no agregas candidatos. Tu avance aparecerá aquí.</p>
     <details><summary>Recuperar un respaldo</summary><p class="help">Selecciona el JSON exportado por esta extensión. Los registros existentes no se sobrescriben.</p><label for="backupFile">Archivo de respaldo</label><input id="backupFile" type="file" accept=".json,application/json"><button id="restore" disabled>Importar respaldo</button></details>
   </section>

@@ -1,13 +1,22 @@
 export const FIELDS = ['name','phone','email','vacancy','reviewState','experience','education','skills','languages','notes'];
 const LIMITS = {name:200,phone:80,email:200,vacancy:200,reviewState:200,experience:12000,education:12000,skills:6000,languages:3000,notes:12000};
-export function profileIdentity(value) {
+export const vacancyIdentity = value => typeof value==='string' ? value.normalize('NFC').trim().replace(/\s+/g,' ').toLocaleLowerCase('es') : '';
+export function profileIdentity(value, vacancy='') {
   try {
     const u = new URL(value);
     if (u.protocol !== 'https:' || u.hostname !== 'employers.indeed.com' || u.username || u.password || u.port || u.pathname.replace(/\/$/,'') !== '/candidates/view') return null;
     const one = key => u.searchParams.getAll(key).length === 1 && /^[a-f\d]{12}$/i.test(u.searchParams.get(key)) ? u.searchParams.get(key).toLowerCase() : '';
     const app = one('id'), job = one('legacyJobId');
-    if (!app || !job) return null;
-    return {id:`indeed:${job}:${app}`,url:`https://employers.indeed.com/candidates/view?id=${app}&legacyJobId=${job}`};
+    if (!app || (u.searchParams.has('legacyJobId') && !job)) return null;
+    if(job)return {id:`indeed:${job}:${app}`,url:`https://employers.indeed.com/candidates/view?id=${app}&legacyJobId=${job}`};
+    // New Indeed links omit the job id. Keep a local vacancy namespace rather
+    // than guessing a job id from opaque listQuery/l parameters. The fragment
+    // preserves that identity even if someone edits the vacancy label in Excel.
+    const saved=/^#bpower-vacancy=(.+)$/.exec(u.hash);
+    const context=vacancyIdentity(saved?decodeURIComponent(saved[1]):vacancy);
+    if(context.length>200)return null;
+    const suffix=context?encodeURIComponent(context):'';
+    return {id:`indeed:application:${app}${suffix?':vacancy:'+suffix:''}`,url:`https://employers.indeed.com/candidates/view?id=${app}${suffix?'#bpower-vacancy='+suffix:''}`};
   } catch { return null; }
 }
 export function cleanFields(value) {
@@ -24,13 +33,19 @@ export function cleanFields(value) {
 export function validateRecord(input) {
   const fields = cleanFields(input);
   if (!fields.name || !fields.vacancy) throw Error('Completa el nombre y la vacante.');
-  const identity = profileIdentity(input.url);
+  const identity = profileIdentity(input.url,fields.vacancy);
   if (!identity || input.id !== identity.id) throw Error('Abre el perfil individual de una postulación de Indeed.');
   return {...identity,...fields};
 }
-export function saveRecord(current, input, {edit=false, now=new Date().toISOString()}={}) {
+export function saveRecord(current, input, {edit=false, capture=false, now=new Date().toISOString()}={}) {
   const row = validateRecord(input);
-  if (current && !edit) return {row:current,duplicate:true};
+  if (current && !edit) {
+    if(capture){
+      const missing=['phone','email','experience','education','skills','languages','reviewState'].filter(key=>!current[key]?.trim()&&row[key]);
+      if(missing.length)return {row:{...current,...Object.fromEntries(missing.map(key=>[key,row[key]])),revision:current.revision+1,updatedAt:now},duplicate:true,enriched:missing};
+    }
+    return {row:current,duplicate:true};
+  }
   if (edit && (!current || input.revision !== current.revision)) throw Error('Este registro cambió en otra ventana. Recarga la lista antes de editarlo.');
   return {row:{...row,revision:(current?.revision || 0)+1,createdAt:current?.createdAt || now,updatedAt:now},duplicate:false};
 }

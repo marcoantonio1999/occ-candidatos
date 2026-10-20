@@ -1,0 +1,5 @@
+import http from 'node:http';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+const root=path.resolve(new URL('..',import.meta.url).pathname.replace(/^\/([A-Za-z]:)/,'$1'));
+http.createServer(async(req,res)=>{try{const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);const file=path.resolve(root,'.'+pathname);if(!file.startsWith(root+path.sep))throw Error();const type=file.endsWith('.mjs')?'text/javascript':file.endsWith('.css')?'text/css':'text/html';res.setHeader('Content-Type',type+'; charset=utf-8');res.setHeader('Cache-Control','no-store');if(pathname==='/extension-tests/panel-preview.html'){res.end((await fs.readFile(path.join(root,'extension/panel.html'),'utf8')).replace('href="panel.css"','href="../extension/panel.css"').replace('src="panel.mjs"','src="preview.mjs"'));return;}res.end(await fs.readFile(file));}catch{res.writeHead(404);res.end('Not found');}}).listen(8947,'127.0.0.1',()=>console.log('Local extension QA: http://127.0.0.1:8947/extension-tests/excel-browser.html'));

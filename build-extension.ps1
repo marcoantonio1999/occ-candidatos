@@ -1,11 +1,11 @@
 param([string]$Node = 'node')
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
-& $Node --test extension-tests/extension.test.mjs
+& $Node --test extension-tests/extension.test.mjs extension-tests/excel-file.test.mjs
 if ($LASTEXITCODE -ne 0) { throw 'Fallaron las pruebas de la extensión.' }
 $extensionFolder = Join-Path $PSScriptRoot 'extension'
 $manifest = Get-Content -LiteralPath (Join-Path $extensionFolder 'manifest.json') -Raw | ConvertFrom-Json
-$files = @('manifest.json','model.mjs','capture.mjs','worker.mjs','xlsx.mjs','panel.html','panel.css','panel.mjs','LEEME.md')
+$files = @('manifest.json','model.mjs','capture.mjs','worker.mjs','xlsx.mjs','excel-file.mjs','file-link.mjs','panel.html','panel.css','panel.mjs','LEEME.md')
 foreach ($file in $files) { if (-not (Test-Path -LiteralPath (Join-Path $extensionFolder $file))) { throw "Falta $file" } }
 New-Item -ItemType Directory -Path (Join-Path $PSScriptRoot 'dist') -Force | Out-Null
 $zip = Join-Path $PSScriptRoot ('dist\Extension-Candidatos-Manual-' + $manifest.version + '.zip')
