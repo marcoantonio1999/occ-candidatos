@@ -4,6 +4,14 @@ Descarga los candidatos de una vacante en Excel desde una pantalla sencilla, con
 
 ## Descargar e instalar
 
+### App de Indeed: JSON a Excel
+
+[![Descargar app de Indeed para Windows](.github/assets/descargar-indeed.svg)](https://github.com/marcoantonio1999/occ-candidatos/releases/download/indeed-json-v1.0.0/Indeed-JSON-BPower-Instalador.exe)
+
+**Vero: usa este botón azul para la nueva app de Indeed.** Selecciona una carpeta con los JSON descargados de las postulaciones y genera automáticamente el Excel con los datos y los CV PDF adjuntos. No necesita Python ni abrir un navegador automatizado.
+
+Es un instalador independiente de OCC/Computrabajo y de la extensión. [Ver instrucciones de uso](indeed-json-app/README.md).
+
 ### Extensión manual para Indeed (nueva)
 
 [Descargar extensión de captura manual para Vero](https://github.com/marcoantonio1999/occ-candidatos/releases/download/extension-v1.0.0/Extension-Candidatos-Manual-1.0.0.zip)
