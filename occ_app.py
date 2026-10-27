@@ -14,7 +14,7 @@ from urllib.parse import urlsplit
 from occ_prueba import ROOT, URL, DISCOVER, norm, allowed_profile, extract_profile, extract_sections, select_candidates, unique, export_xlsx
 
 ASSETS = Path(__file__).resolve().parent
-VERSION = '1.2.1'
+VERSION = '1.2.2'
 
 def row_count(data):
     rows = data.get('rows', [])
@@ -30,6 +30,7 @@ class Progress:
         self.data = None
         self.busy = False
         self.awaiting = False
+        self.browser = None
         self.ready = threading.Event()
         self.pause = threading.Event()
         self.message = 'Elige una opción para comenzar.'
@@ -163,6 +164,9 @@ class Progress:
                 self.data = dict(version=1, vacancy=vacancy, mode=mode, platform=platform, action=action, candidates=[], selected=[],
                                  rows=[], done=[], pages=0, listed=False, complete=False, skipped=0)
                 self.save()
+            # A manual continuation/new download owns the previous OCC window.
+            # Never leave two drivers competing for the same Chrome profile.
+            self.close_browser()
             self.busy = True
             self.awaiting = False
             self.ready.clear()
@@ -175,6 +179,14 @@ class Progress:
                 from indeed import collect as worker
             threading.Thread(target=worker, args=(self,), daemon=True).start()
 
+    def close_browser(self):
+        browser, self.browser = self.browser, None
+        if browser:
+            try:
+                browser.quit()
+            except Exception:
+                pass
+
     def excel(self):
         with self.lock:
             if not self.data or not self.data['rows']:
@@ -186,8 +198,56 @@ class Progress:
         return destination
 
 
+def read_occ_candidate(driver, progress):
+    """Bounded wait for visible contact data; no reload or automatic retry."""
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
+    last_body = ''
+    clicked = False
+
+    def ready(current):
+        nonlocal last_body, clicked
+        if progress.pause.is_set():
+            return {'paused': True}
+        if not allowed_profile(current.current_url):
+            raise ValueError('Se cerró la sesión de OCC o cambió la página. El candidato sigue pendiente; continúa manualmente cuando hayas revisado la ventana.')
+        last_body = current.find_element(By.TAG_NAME, 'body').text
+        if re.search(r'(?i)captcha|verifica que eres humano|verifica que no eres un robot', last_body):
+            raise ValueError('OCC solicita una verificación humana. La descarga está pausada; revisa la ventana antes de continuar manualmente.')
+        if re.search(r'(?i)desbloquear|usar créditos|consumir créditos|comprar créditos', last_body):
+            return {'contact': None, 'body': last_body}
+        if re.search(r'(?i)(?:perfil|currículum|curriculum|candidato) (?:ya )?(?:no (?:está |se encuentra )?disponible|eliminado)', last_body):
+            raise ValueError('OCC indica que este perfil no está disponible. No se descartó el candidato ni se borró el avance; revisa la ventana antes de continuar.')
+        contact = extract_profile(last_body)
+        if contact:
+            return {'contact': contact, 'body': last_body}
+        # CV: 0 is also shown while OCC is loading: never treat it as proof that
+        # the candidate is empty, and do not toggle its incomplete contact panel.
+        placeholder = bool(re.search(r'(?im)^CV\s*:\s*0\s*$', last_body))
+        if not clicked and not placeholder:
+            toggles = [el for el in current.find_elements(By.CSS_SELECTOR, 'button,[role="button"]')
+                       if el.is_displayed() and norm(el.text) == 'datos de contacto']
+            if len(toggles) == 1 and toggles[0].get_attribute('aria-expanded') != 'true':
+                try:
+                    toggles[0].click()
+                    clicked = True
+                except StaleElementReferenceException:
+                    return False
+        return False
+
+    try:
+        return WebDriverWait(driver, 25).until(ready)
+    except TimeoutException:
+        incomplete = bool(re.search(r'(?im)^CV\s*:\s*0\s*$', last_body))
+        reason = ('OCC sigue mostrando el perfil incompleto (CV: 0), sin datos visibles.' if incomplete
+                  else 'OCC no mostró datos de contacto que se puedan leer con seguridad.')
+        raise ValueError(reason + ' El candidato sigue pendiente y el avance está guardado. No se recargó ni se descartó automáticamente; revisa la ventana y pulsa Continuar descarga cuando quieras intentarlo de nuevo.') from None
+
+
 def collect(progress):
     driver = None
+    keep_browser = False
     try:
         from selenium import webdriver
         from selenium.webdriver.common.by import By
@@ -249,25 +309,13 @@ def collect(progress):
             progress.save()
             progress.message = f'Recopilando candidato {len(data["done"])+1} de {len(data["selected"])}. No cierres la ventana de OCC.'
             driver.get(url)
-            body = WebDriverWait(driver, 25).until(lambda d: d.find_element(By.TAG_NAME, 'body').text or False)
-            if re.search(r'(?i)captcha|verifica que eres humano|verifica que no eres un robot', body):
-                raise ValueError('OCC solicita una verificación. Continúa la descarga y complétala en su ventana.')
-            if not allowed_profile(driver.current_url):
-                raise ValueError('Se cerró la sesión de OCC. Continúa e inicia sesión de nuevo.')
-            if re.search(r'(?i)desbloquear|usar créditos|consumir créditos|comprar créditos', body):
-                contact = None
-            else:
-                toggles = [el for el in driver.find_elements(By.CSS_SELECTOR, 'button,[role="button"]') if el.is_displayed() and norm(el.text) == 'datos de contacto']
-                contact = extract_profile(body)
-                if not contact and len(toggles) == 1:
-                    toggles[0].click()
-                    # Un corte de internet aquí pausa, no descarta al candidato.
-                    contact = WebDriverWait(driver, 12).until(lambda d: extract_profile(d.find_element(By.TAG_NAME, 'body').text))
-                if not contact:
-                    raise ValueError('No pudimos leer los datos de un candidato. Tu avance está guardado; puedes continuar después.')
+            result = read_occ_candidate(driver, progress)
+            if result.get('paused'):
+                return
+            contact = result['contact']
             with progress.lock:
                 if contact:
-                    full_text = driver.find_element(By.TAG_NAME, 'body').text
+                    full_text = result['body']
                     data['rows'].append({**contact, **extract_sections(full_text), 'vacancy': data['vacancy'],
                                          'url': url, 'review_state': candidate['review_state']})
                 else:
@@ -282,11 +330,16 @@ def collect(progress):
         progress.message = f'Descarga terminada. {len(unique(data["rows"]))} candidatos listos para Excel. ' + (f'{data["skipped"]} perfiles no se recopilaron porque requieren desbloqueo.' if data['skipped'] else '')
     except ValueError as exc:
         progress.message = str(exc)
+        keep_browser = driver is not None
     except Exception:
         # No mostrar trazas, rutas internas ni mensajes técnicos a Vero.
-        progress.message = 'La descarga se interrumpió. El avance guardado está a salvo. Revisa tu conexión y cierra la ventana de OCC de esta herramienta antes de pulsar «Continuar descarga».'
+        progress.message = 'La descarga se interrumpió por un problema de carga o conexión. El avance guardado está a salvo y el candidato sigue pendiente. Revisa la ventana y tu conexión antes de pulsar «Continuar descarga»; no se reintentará automáticamente.'
+        keep_browser = driver is not None
     finally:
-        if driver:
+        if driver and keep_browser and not progress.pause.is_set():
+            progress.browser = driver
+            progress.message += ' La ventana de OCC queda abierta para revisión; Continuar descarga la cerrará antes de abrir una sesión nueva.'
+        elif driver:
             try:
                 driver.quit()
             except Exception:
@@ -402,6 +455,7 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        server.progress.close_browser()
         server.server_close()
         lockfile.close()
 
