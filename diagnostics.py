@@ -9,7 +9,7 @@ from pathlib import Path
 EVENTS = {'app_start','app_stop','existing_instance','worker_start','worker_end','worker_error',
           'browser_started','browser_close','browser_retained','profile_start','profile_state',
           'profile_saved','list_start','list_page','waiting_ready','manual_resume','pause_requested',
-          'startup_error','checkpoint_error','diagnostic_download','profile_paused','completed'}
+          'startup_error','checkpoint_error','diagnostic_download','profile_paused','profile_omitted','completed'}
 TEXT_KEYS = {'stage','code','reason','exception','active_version','browser_version','driver_version','platform'}
 INT_KEYS = {'profile_number','reviewed','total','page','rows','pid'}
 BOOL_KEYS = {'cv_zero','has_contact','contact_open','service_alive','complete'}

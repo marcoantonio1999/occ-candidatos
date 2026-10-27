@@ -15,7 +15,7 @@ from diagnostics import DiagnosticLog
 from occ_prueba import ROOT, URL, DISCOVER, norm, allowed_profile, extract_profile, extract_sections, select_candidates, unique, export_xlsx
 
 ASSETS = Path(__file__).resolve().parent
-VERSION = '1.2.3'
+VERSION = '1.2.4'
 
 def row_count(data):
     rows = data.get('rows', [])
@@ -35,6 +35,8 @@ class Progress:
         self.diagnostics = diagnostics or DiagnosticLog(self.folder / 'diagnosticos', VERSION)
         self.stage = 'idle'
         self.issue = ''
+        self.blocked_url = None
+        self.skip_token = None
         self.ready = threading.Event()
         self.pause = threading.Event()
         self.message = 'Elige una opción para comenzar.'
@@ -82,7 +84,12 @@ class Progress:
                     pending.append(dict(id=path.stem, vacancy=old['vacancy'], platform=old.get('platform', 'occ')))
                 except (OSError, ValueError, KeyError, TypeError):
                     continue
-            return dict(version=VERSION, stage=self.stage, issue=self.issue, diagnostic_available=self.diagnostics.available, pending=pending, message=self.message, busy=self.busy, saved=bool(self.data),
+            can_skip = bool(not self.busy and self.browser is not None and self.issue == 'profile_incomplete'
+                            and self.blocked_url and self.skip_token and data.get('platform','occ') == 'occ'
+                            and not data.get('complete') and self.blocked_url not in data.get('done',[]))
+            return dict(version=VERSION, stage=self.stage, issue=self.issue, can_skip=can_skip,
+                        skip_token=self.skip_token if can_skip else None, omitted=len(data.get('omitted_profiles',[])),
+                        diagnostic_available=self.diagnostics.available, pending=pending, message=self.message, busy=self.busy, saved=bool(self.data),
                         vacancy=data.get('vacancy', ''), mode=data.get('mode', 'all'),
                         platform=data.get('platform', 'occ'), action=data.get('action', 'new'),
                         count=row_count(data), reviewed=len(data.get('done', [])),
@@ -175,6 +182,7 @@ class Progress:
             self.close_browser('manual_resume' if resume else 'new_download')
             self.stage = 'opening_browser'
             self.issue = ''
+            self.blocked_url = self.skip_token = None
             self.busy = True
             self.awaiting = False
             self.ready.clear()
@@ -186,6 +194,40 @@ class Progress:
             elif self.data.get('platform') == 'indeed':
                 from indeed import collect as worker
             threading.Thread(target=self.run_worker, args=(worker,), daemon=True).start()
+
+    def skip_profile(self, token):
+        """Explicit local omission, never an OCC discard or an automatic retry."""
+        with self.lock:
+            if not self.status()['can_skip'] or not token or token != self.skip_token:
+                raise ValueError('Ese perfil ya no está disponible para omitir. Actualiza la pantalla.')
+            pending = [item['url'] for item in self.data['selected'] if item['url'] not in self.data['done']]
+            if not pending or pending[0] != self.blocked_url:
+                raise ValueError('El candidato pendiente cambió. No se omitió ningún perfil.')
+            try:
+                if self.browser.current_url != self.blocked_url:
+                    raise ValueError('La ventana cambió de perfil. No se omitió ningún candidato; continúa manualmente.')
+            except ValueError:
+                raise
+            except Exception:
+                raise ValueError('La ventana de OCC ya no está disponible. Continúa la descarga antes de omitir el perfil.') from None
+            previous = copy.deepcopy(self.data)
+            self.data.setdefault('omitted_profiles',[]).append(dict(url=self.blocked_url,reason='profile_incomplete',decision='manual'))
+            self.data['done'].append(self.blocked_url)
+            try:
+                self.save()
+            except Exception:
+                self.data = previous
+                raise ValueError('No se pudo guardar la omisión. No se avanzó al siguiente candidato.') from None
+            self.diagnostics.event('profile_omitted', reason='profile_incomplete', reviewed=len(self.data['done']))
+            driver, self.browser = self.browser, None
+            self.blocked_url = self.skip_token = None
+            self.issue = ''
+            self.busy = True
+            self.pause.clear()
+            self.message = 'Perfil omitido por indicación tuya. Continuando con el siguiente candidato en la misma ventana.'
+            def remaining(progress):
+                collect(progress, driver=driver)
+            threading.Thread(target=self.run_worker,args=(remaining,),daemon=True).start()
 
     def run_worker(self, worker):
         try:
@@ -278,33 +320,32 @@ def read_occ_candidate(driver, progress):
         raise ValueError(reason + ' El candidato sigue pendiente y el avance está guardado. No se recargó ni se descartó automáticamente; revisa la ventana y pulsa Continuar descarga cuando quieras intentarlo de nuevo.') from None
 
 
-def collect(progress):
-    driver = None
+def collect(progress, driver=None):
+    url = None
     keep_browser = False
     try:
         from selenium import webdriver
         from selenium.webdriver.common.by import By
         from selenium.webdriver.support.ui import WebDriverWait
         import re
-        options = webdriver.ChromeOptions()
-        options.add_argument('--start-maximized')
-        options.add_argument('--user-data-dir=' + str(ROOT / 'perfil-occ'))
-        # Keep Chrome alive if Selenium's Service object is finalized on a worker
-        # exit. Explicit quit still closes it on completion/pause/manual resume.
-        options.add_experimental_option('detach', True)
-        driver = webdriver.Chrome(options=options)
-        versions = getattr(driver, 'capabilities', {})
-        progress.diagnostics.event('browser_started', browser_version=versions.get('browserVersion',''), driver_version=versions.get('chrome',{}).get('chromedriverVersion','').split(' ')[0])
-        driver.set_page_load_timeout(45)
-        progress.stage = 'opening_list'
-        driver.get(URL)
-        progress.message = 'En la ventana de OCC, inicia sesión y selecciona la vacante indicada. Después vuelve aquí y pulsa «Ya estoy en la vacante».'
-        progress.awaiting = True
-        progress.stage = 'waiting_ready'
-        progress.diagnostics.event('waiting_ready', stage=progress.stage)
-        while not progress.ready.wait(.3):
-            if progress.pause.is_set():
-                return
+        if driver is None:
+            options = webdriver.ChromeOptions()
+            options.add_argument('--start-maximized')
+            options.add_argument('--user-data-dir=' + str(ROOT / 'perfil-occ'))
+            options.add_experimental_option('detach', True)
+            driver = webdriver.Chrome(options=options)
+            versions = getattr(driver, 'capabilities', {})
+            progress.diagnostics.event('browser_started', browser_version=versions.get('browserVersion',''), driver_version=versions.get('chrome',{}).get('chromedriverVersion','').split(' ')[0])
+            driver.set_page_load_timeout(45)
+            progress.stage = 'opening_list'
+            driver.get(URL)
+            progress.message = 'En la ventana de OCC, inicia sesión y selecciona la vacante indicada. Después vuelve aquí y pulsa «Ya estoy en la vacante».'
+            progress.awaiting = True
+            progress.stage = 'waiting_ready'
+            progress.diagnostics.event('waiting_ready', stage=progress.stage)
+            while not progress.ready.wait(.3):
+                if progress.pause.is_set():
+                    return
         data = progress.data
         progress.awaiting = False
         if urlsplit(driver.current_url).hostname != 'empresa.occ.com.mx':
@@ -374,12 +415,15 @@ def collect(progress):
             progress.save()
         if data['rows']:
             progress.excel()
-        progress.message = f'Descarga terminada. {len(unique(data["rows"]))} candidatos listos para Excel. ' + (f'{data["skipped"]} perfiles no se recopilaron porque requieren desbloqueo.' if data['skipped'] else '')
+        progress.message = f'Descarga terminada. {len(unique(data["rows"]))} candidatos listos para Excel. ' + (f'{data["skipped"]} perfiles no se recopilaron porque requieren desbloqueo. ' if data['skipped'] else '') + (f'{len(data["omitted_profiles"])} perfiles incompletos omitidos por indicación tuya; el registro se conserva en el avance.' if data.get('omitted_profiles') else '')
         progress.stage = 'completed'
         progress.diagnostics.event('completed', rows=len(data['rows']), complete=True)
     except ValueError as exc:
         progress.message = str(exc)
         progress.issue = progress.issue or 'read_validation'
+        if progress.issue == 'profile_incomplete' and driver is not None and url:
+            progress.blocked_url = url
+            progress.skip_token = secrets.token_hex(16)
         progress.diagnostics.event('worker_error', exc=exc, stage=progress.stage, code=progress.issue)
         keep_browser = driver is not None
     except Exception as exc:
@@ -461,6 +505,8 @@ class Handler(BaseHTTPRequestHandler):
                         platform=data.get('platform','occ'), action=data.get('action','new'))
             elif self.path == '/continuar':
                 p.begin('', '', resume=True)
+            elif self.path == '/omitir-perfil':
+                p.skip_profile(data.get('token'))
             elif self.path == '/guardar-aparte':
                 p.park()
             elif self.path == '/recuperar':

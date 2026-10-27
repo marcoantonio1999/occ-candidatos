@@ -19,7 +19,9 @@ class Fixture(BaseHTTPRequestHandler):
         pass
 
     def do_GET(self):
-        content = ('<html><body>' + self.body + '</body></html>').encode()
+        body = ('Persona Ficticia<br>Ciudad de México<br>$8,000 MXN<br>Datos de contacto<br>5512345678<br>Descarga CV<br>CV: 123'
+                if self.path == '/next' else self.body)
+        content = ('<html><body>' + body + '</body></html>').encode()
         self.send_response(200)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
         self.send_header('Content-Length', str(len(content)))
@@ -73,13 +75,28 @@ def main():
                     log = p.diagnostics.export().decode()
                     assert 'profile_paused' in log and 'browser_retained' in log
                     assert profile not in log and '5512345678' not in log
-                    p.close_browser('manual_resume')
+                    session = p.browser.session_id
+                    p.data['selected'].append(dict(url=base+'/next',review_state='Visto'))
+                    def inline_thread(*,target,args,**kwargs):
+                        return SimpleNamespace(start=lambda:target(*args))
+                    with patch('occ_app.threading',SimpleNamespace(Thread=inline_thread)), \
+                         patch('occ_app.urlsplit',return_value=SimpleNamespace(hostname='empresa.occ.com.mx')), \
+                         patch('occ_app.allowed_profile',side_effect=lambda url:url in (profile,base+'/next')), \
+                         patch('selenium.webdriver.support.ui.WebDriverWait',side_effect=lambda driver,seconds:WebDriverWait(driver,.6)), \
+                         patch('selenium.webdriver.Chrome') as constructor:
+                        p.skip_profile(p.skip_token)
+                        constructor.assert_not_called()
+                    assert p.data['complete'],p.message
+                    assert len(p.data['rows'])==1 and p.data['rows'][0]['url']==base+'/next'
+                    assert p.data['omitted_profiles'][0]['url']==profile
+                    assert p.data['done']==[profile,base+'/next']
+                    assert drivers[-1].session_id==session
                     assert drivers[-1].service.process.poll() is not None
                 else:
                     assert p.data['complete'] and len(p.data['rows']) == 1, p.message
                     assert p.browser is None
                     assert drivers[-1].service.process.poll() is not None
-                print(json.dumps(dict(realChrome=True, complete=good, browserRetained=not good,
+                print(json.dumps(dict(realChrome=True, complete=True, manualSkipSameBrowser=not good,
                                       progressPreserved=True, noOCCTraffic=True)))
     finally:
         for driver in drivers:

@@ -28,7 +28,7 @@ La extensión no está publicada en Chrome Web Store ni es oficial de Indeed. La
 
 ### Instalador de escritorio anterior
 
-**Versión 1.2.3 (27/10/2026):** incorpora **Descargar diagnóstico**, incluso con cero candidatos, y muestra la versión realmente activa, la etapa y el motivo de la pausa. Detecta una instancia anterior que siga abierta tras actualizar, sin confundirla con la versión nueva. Conserva Chrome para revisar un error de OCC, sin recargar ni reintentar automáticamente. Incluye OCC, Computrabajo e Indeed y conserva el avance anterior. Es autocontenido: no requiere Python.
+**Versión 1.2.4 (27/10/2026):** agrega **Omitir este perfil y continuar** cuando OCC mantiene un perfil incompleto (CV: 0). Requiere confirmación individual, conserva el registro en el avance y continúa en la misma ventana con el siguiente candidato, sin repetir los anteriores. No descarta postulaciones en OCC ni omite verificaciones o fallos de sesión. Conserva el diagnóstico, la versión activa y el avance anterior. Es autocontenido: no requiere Python.
 
 [![Descargar instalador para Windows](https://img.shields.io/badge/⬇_Descargar_instalador_para_Windows-367454?style=for-the-badge)](https://github.com/marcoantonio1999/occ-candidatos/releases/latest/download/OCC-Candidatos-Instalador.exe)
 
@@ -75,11 +75,13 @@ Cada plataforma usa su propia sesión local de Chrome. Iniciar sesión en el nav
 
 ## Si se interrumpe
 
-Si una descarga pendiente bloquea la selección de Indeed, pulsa **Guardar pendiente y elegir otra plataforma**. El avance se conserva sin iniciar otra descarga; después puedes seleccionarlo en **Pendientes guardados → Recuperar pendiente** y continuar. Si acabas de actualizar y aún aparece la pantalla anterior, cierra la aplicación anterior (no solo la pestaña) y vuelve a abrir el acceso del escritorio. La versión nueva muestra **Versión activa: 1.2.3** arriba. Desde esta versión, **Cerrar aplicación** permite terminar la instancia local cuando no está descargando.
+Si una descarga pendiente bloquea la selección de Indeed, pulsa **Guardar pendiente y elegir otra plataforma**. El avance se conserva sin iniciar otra descarga; después puedes seleccionarlo en **Pendientes guardados → Recuperar pendiente** y continuar. Si acabas de actualizar y aún aparece la pantalla anterior, cierra la aplicación anterior (no solo la pestaña) y vuelve a abrir el acceso del escritorio. La versión nueva muestra **Versión activa: 1.2.4** arriba. **Cerrar aplicación** permite terminar la instancia local cuando no está descargando.
 
 Si solo aparece **Continuar descarga** o Chrome se cierra inesperadamente, pulsa **Descargar diagnóstico** y comparte `Diagnostico-Candidatos.txt` con soporte. También se conserva localmente en `%LOCALAPPDATA%\OCC-Candidatos\resultados\diagnosticos`. Registra versión, etapa, clase de excepción y motivo de cierre, no nombres, teléfonos, correos, sesiones, direcciones de perfiles ni mensajes técnicos completos. Tiene un límite de tamaño y una copia anterior. No envía el registro automáticamente. El motivo exacto de un cierre en otra computadora requiere revisar ese diagnóstico; una pantalla con «CV: 0» por sí sola no confirma la causa.
 
 En OCC, «CV: 0» no se considera prueba de que el candidato no tenga información: también puede ser una carga incompleta. Si después de la espera no hay datos legibles, la descarga se pausa sin marcarlo como terminado. Chrome queda abierto para revisar lo que muestra OCC. **Continuar descarga** cierra esa ventana antes de abrir otra sesión; solo continúa por acción manual y no vuelve a recopilar los perfiles ya guardados. Una verificación humana o sesión vencida también detiene la lectura, sin intentar evadirlas.
+
+Si confirmas que ese perfil sigue vacío, pulsa **Omitir este perfil y continuar** y acepta la confirmación. Se guarda su enlace y el motivo en `omitted_profiles` dentro del avance privado; no se inventa una fila de candidato ni se cambia su estado en OCC. La misma ventana pasa al siguiente pendiente. Cada nuevo perfil incompleto requiere otra decisión individual. Si cierras o cambias de página en Chrome, la omisión se rechaza para no saltar otro candidato por error. Tras actualizar, retoma la descarga y espera a que el perfil vuelva a quedar en pausa para mostrar esta opción.
 
 Abre **Candidatos de OCC** de nuevo y pulsa **Continuar descarga**. Lo que ya se guardó no se vuelve a recopilar. Si estabas revisando páginas, la herramienta puede volver a recorrer la lista para completar lo pendiente.
 
