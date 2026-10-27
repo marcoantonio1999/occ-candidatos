@@ -100,7 +100,8 @@ class IndeedTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 p.begin('Vacante', 'seen', platform='indeed', consent=True)
             p.begin('Vacante', 'all', platform='indeed', consent=True)
-            self.assertEqual(thread.call_args.kwargs['target'], collect)
+            self.assertEqual(thread.call_args.kwargs['target'], p.run_worker)
+            self.assertEqual(thread.call_args.kwargs['args'], (collect,))
             p.data.update(complete=True, offer_id=OFFER, rows=[{**candidate(1), 'phone': ''}])
             p.save(); p.busy = False
             p.begin('Vacante', 'all', platform='indeed', action='update', consent=True)

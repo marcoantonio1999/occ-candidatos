@@ -5,7 +5,7 @@
 *{box-sizing:border-box}body{margin:0;background:#f3f6f4;color:#233e32;font:17px system-ui,sans-serif}main{max-width:790px;margin:45px auto;padding:28px}section{background:white;border:1px solid #dce6de;border-radius:18px;padding:28px;margin:20px 0}h1{font-size:32px;margin:10px 0}h2{font-size:22px}p{line-height:1.6}.muted{color:#627269}label{display:block;margin:18px 0 8px}input[type=text],select{width:100%;font:inherit;padding:13px;border:1px solid #bccfc1;border-radius:9px}button{font:inherit;border:1px solid #367454;border-radius:9px;padding:13px 18px;background:white;color:#295a40;cursor:pointer;margin:6px 5px 6px 0}button.primary{background:#367454;color:white}button:disabled{opacity:.5;cursor:default}#message{white-space:pre-line}#warning{background:#fff7df;padding:16px;border-radius:10px;font-size:15px}#counts{font-size:21px}#error{color:#a32626}input[type=checkbox]{width:18px;height:18px;vertical-align:middle}small{line-height:1.5;display:block} [hidden]{display:none!important}
 </style>
 <style>main,section{min-width:0}button{min-height:44px;max-width:100%;white-space:normal;overflow-wrap:anywhere}input[type=text],select{min-height:44px;max-width:100%}p,small,#message{overflow-wrap:anywhere}@media(max-width:600px){body{font-size:16px}main{margin:0 auto;padding:16px;width:100%}section{padding:16px;margin:16px 0;border-radius:12px}h1{font-size:26px}h2{font-size:21px}button{width:100%;margin:6px 0}#counts{font-size:18px}}</style>
-<main><small class="muted">RECURSOS HUMANOS · VERSIÓN 1.2.2</small><h1>Candidatos de OCC, Computrabajo e Indeed</h1><p class="muted">Recopila los candidatos de una vacante y descarga su información en Excel.</p>
+<main><small class="muted">RECURSOS HUMANOS · VERSIÓN 1.2.3</small><small id="activeVersion" class="muted" aria-live="polite"></small><h1>Candidatos de OCC, Computrabajo e Indeed</h1><p class="muted">Recopila los candidatos de una vacante y descarga su información en Excel.</p>
 <section id="pendingNotice" hidden><h2>Tienes una descarga pendiente</h2><p id="pendingText"></p><p>Puedes continuarla o guardarla aparte para elegir otra plataforma. No se borran candidatos ni se inicia ninguna descarga al guardarla.</p><button id="park">Guardar pendiente y elegir otra plataforma</button></section>
 <section id="pendingHistory" hidden><label for="pendingChoice">Pendientes guardados</label><select id="pendingChoice"></select><button id="restore">Recuperar pendiente</button><small>Guarda aparte el avance actual antes de recuperar otro.</small></section>
 <section><label for="platform">¿Dónde está tu vacante?</label><select id="platform"><option value="occ">OCC</option><option value="computrabajo">Computrabajo</option><option value="indeed">Indeed</option></select>
@@ -17,6 +17,7 @@
 <p><button id="start" class="primary">Comenzar descarga</button><button id="resume" hidden>Continuar descarga</button></p><small class="muted">La descarga corresponde a la vacante que selecciones en la plataforma. Escribe aquí ese mismo nombre y abre la primera página de candidatos.</small></section>
 <section aria-live="polite"><h2>Tu descarga</h2><p id="message">Cargando…</p><p id="counts"></p><p id="savedVacancy" class="muted"></p><p id="error" role="alert"></p>
 <button id="ready" class="primary" hidden>Ya estoy en la vacante</button><button id="pause" hidden>Pausar y guardar</button><button id="excel" hidden>Descargar Excel</button>
+<p id="diagnosticStatus" class="muted"></p><button id="diagnostic">Descargar diagnóstico</button><button id="closeApp">Cerrar aplicación</button>
 <p class="muted">Tu avance se guarda en esta computadora. Si se interrumpe la descarga, abre de nuevo <b>ABRIR</b> y pulsa <b>Continuar descarga</b>. No borres ni muevas la carpeta mientras esté trabajando.</p></section>
 <small class="muted">El archivo contiene datos personales: compártelo únicamente con las personas autorizadas. Esta herramienta no envía mensajes ni guarda candidatos en Google Sheets.</small></main>
 <script>
@@ -28,7 +29,30 @@ el('start').onclick=()=>action('/iniciar',{vacancy:el('vacancy').value,mode:el('
 el('resume').onclick=()=>action('/continuar');el('ready').onclick=()=>action('/listo');el('pause').onclick=()=>action('/pausar');
 el('park').onclick=async()=>{initialized=false;await action('/guardar-aparte')};el('restore').onclick=async()=>{initialized=false;await action('/recuperar',{id:el('pendingChoice').value})};
 el('excel').onclick=async()=>{try{const s=await api('/estado'),r=await fetch('/excel',{headers:{'X-OCC-Key':key}});if(!r.ok)throw Error((await r.json()).error);const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download='Candidatos-'+({computrabajo:'Computrabajo',indeed:'Indeed',occ:'OCC'}[s.platform]||'OCC')+'.xlsx';a.click();setTimeout(()=>URL.revokeObjectURL(url),10000)}catch(e){el('error').textContent=e.message}};
+el('diagnostic').onclick=async()=>{try{const r=await fetch('/diagnostico',{headers:{'X-OCC-Key':key}});if(!r.ok)throw Error('No se pudo descargar el diagnóstico.');const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download='Diagnostico-Candidatos.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),10000)}catch(e){el('error').textContent=e.message}};
+el('closeApp').onclick=async()=>{if(!confirm('¿Cerrar la aplicación? El avance guardado se conserva.'))return;try{await api('/cerrar',{});clearTimeout(refreshTimer);el('message').textContent='Aplicación cerrada. Puedes instalar la actualización y abrir de nuevo el acceso del escritorio.'}catch(e){el('error').textContent=e.message}};
 let refreshTimer;
-async function refresh(){clearTimeout(refreshTimer);try{const s=await api('/estado');el('message').textContent=s.message;el('counts').textContent=s.count+' candidatos recopilados'+(s.total?' · '+s.reviewed+' de '+s.total+' revisados':'')+(s.pages?' · '+s.pages+' páginas':'');el('savedVacancy').textContent=s.saved?'Vacante guardada: '+s.vacancy:'';el('start').disabled=s.busy||(s.saved&&!s.complete);el('vacancy').disabled=el('mode').disabled=el('platform').disabled=el('downloadAction').disabled=s.busy||(s.saved&&!s.complete);el('resume').hidden=!s.saved||s.complete||s.busy;el('ready').hidden=!s.waiting;el('pause').hidden=!s.busy;el('excel').hidden=!s.count;el('pendingNotice').hidden=!s.saved||s.complete;el('pendingText').textContent='Plataforma: '+s.platform+' · Vacante: '+s.vacancy;el('park').disabled=s.busy;el('pendingHistory').hidden=!s.pending?.length;el('restore').disabled=s.busy||s.saved;const choice=el('pendingChoice').value;el('pendingChoice').replaceChildren(...(s.pending||[]).map(p=>new Option(p.platform+' · '+p.vacancy,p.id)));if([...el('pendingChoice').options].some(o=>o.value===choice))el('pendingChoice').value=choice;if(!initialized){el('vacancy').value=s.saved?s.vacancy:'';el('mode').value=s.saved?s.mode:'all';el('platform').value=s.saved?s.platform:'occ';el('downloadAction').value=s.saved?s.action:'new';initialized=true;warning()}if(s.busy&&!document.hidden)refreshTimer=setTimeout(refresh,1500)}catch(e){el('message').textContent='La herramienta se cerró. Tu avance guardado permanece en esta computadora. Abre ABRIR de nuevo para continuar.'}}
+async function refresh(){
+ clearTimeout(refreshTimer);
+ try{
+  const s=await api('/estado');
+  const stages={idle:'Sin descarga activa',saved_pending:'Avance pendiente de continuar',opening_browser:'Abriendo navegador',opening_list:'Abriendo OCC',waiting_ready:'Esperando que confirmes la vacante',reading_list:'Leyendo lista',reading_profile:'Leyendo perfil',completed:'Descarga terminada'};
+  el('activeVersion').textContent='Versión activa: '+s.version+' · '+(stages[s.stage]||'Estado guardado');
+  el('diagnosticStatus').textContent=s.issue?'Referencia del problema: '+s.issue+'. Descarga el diagnóstico para revisar el detalle.':s.diagnostic_available===false?'No se pudo guardar el registro de diagnóstico en esta computadora.':'Puedes descargar el diagnóstico incluso si no se recopiló ningún candidato.';
+  el('closeApp').disabled=s.busy;
+  el('message').textContent=s.message;
+  el('counts').textContent=s.count+' candidatos recopilados'+(s.total?' · '+s.reviewed+' de '+s.total+' revisados':'')+(s.pages?' · '+s.pages+' páginas':'');
+  el('savedVacancy').textContent=s.saved?'Vacante guardada: '+s.vacancy:'';
+  el('start').disabled=s.busy||(s.saved&&!s.complete);
+  el('vacancy').disabled=el('mode').disabled=el('platform').disabled=el('downloadAction').disabled=s.busy||(s.saved&&!s.complete);
+  el('resume').hidden=!s.saved||s.complete||s.busy;el('ready').hidden=!s.waiting;el('pause').hidden=!s.busy;el('excel').hidden=!s.count;
+  el('pendingNotice').hidden=!s.saved||s.complete;el('pendingText').textContent='Plataforma: '+s.platform+' · Vacante: '+s.vacancy;
+  el('park').disabled=s.busy;el('pendingHistory').hidden=!s.pending?.length;el('restore').disabled=s.busy||s.saved;
+  const choice=el('pendingChoice').value;el('pendingChoice').replaceChildren(...(s.pending||[]).map(p=>new Option(p.platform+' · '+p.vacancy,p.id)));
+  if([...el('pendingChoice').options].some(o=>o.value===choice))el('pendingChoice').value=choice;
+  if(!initialized){el('vacancy').value=s.saved?s.vacancy:'';el('mode').value=s.saved?s.mode:'all';el('platform').value=s.saved?s.platform:'occ';el('downloadAction').value=s.saved?s.action:'new';initialized=true;warning()}
+  if(s.busy&&!document.hidden)refreshTimer=setTimeout(refresh,1500);
+ }catch(e){el('message').textContent='No se pudo consultar el estado. Esto no confirma que la aplicación se haya cerrado. Intenta descargar el diagnóstico antes de volver a abrirla.'}
+}
 document.addEventListener('visibilitychange',()=>{clearTimeout(refreshTimer);if(!document.hidden)refresh()});refresh();
 </script></html>

@@ -10,11 +10,12 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
+from diagnostics import DiagnosticLog
 
 from occ_prueba import ROOT, URL, DISCOVER, norm, allowed_profile, extract_profile, extract_sections, select_candidates, unique, export_xlsx
 
 ASSETS = Path(__file__).resolve().parent
-VERSION = '1.2.2'
+VERSION = '1.2.3'
 
 def row_count(data):
     rows = data.get('rows', [])
@@ -22,7 +23,7 @@ def row_count(data):
 
 
 class Progress:
-    def __init__(self, folder):
+    def __init__(self, folder, diagnostics=None):
         self.folder = Path(folder)
         self.folder.mkdir(exist_ok=True)
         self.path = self.folder / 'avance.json'
@@ -31,6 +32,9 @@ class Progress:
         self.busy = False
         self.awaiting = False
         self.browser = None
+        self.diagnostics = diagnostics or DiagnosticLog(self.folder / 'diagnosticos', VERSION)
+        self.stage = 'idle'
+        self.issue = ''
         self.ready = threading.Event()
         self.pause = threading.Event()
         self.message = 'Elige una opción para comenzar.'
@@ -45,6 +49,7 @@ class Progress:
                             raise ValueError('Formato inválido')
                     self.data = data
                     self.message = 'Encontramos tu avance guardado. Puedes continuar o descargar lo recopilado.'
+                    self.stage = 'saved_pending'
                     break
                 except (ValueError, OSError, TypeError, AttributeError):
                     self.message = 'No pudimos leer el avance guardado. Conserva esta carpeta y solicita ayuda.'
@@ -77,7 +82,7 @@ class Progress:
                     pending.append(dict(id=path.stem, vacancy=old['vacancy'], platform=old.get('platform', 'occ')))
                 except (OSError, ValueError, KeyError, TypeError):
                     continue
-            return dict(version=VERSION, pending=pending, message=self.message, busy=self.busy, saved=bool(self.data),
+            return dict(version=VERSION, stage=self.stage, issue=self.issue, diagnostic_available=self.diagnostics.available, pending=pending, message=self.message, busy=self.busy, saved=bool(self.data),
                         vacancy=data.get('vacancy', ''), mode=data.get('mode', 'all'),
                         platform=data.get('platform', 'occ'), action=data.get('action', 'new'),
                         count=row_count(data), reviewed=len(data.get('done', [])),
@@ -166,7 +171,10 @@ class Progress:
                 self.save()
             # A manual continuation/new download owns the previous OCC window.
             # Never leave two drivers competing for the same Chrome profile.
-            self.close_browser()
+            self.diagnostics.event('manual_resume' if resume else 'worker_start', platform=self.data.get('platform','occ'))
+            self.close_browser('manual_resume' if resume else 'new_download')
+            self.stage = 'opening_browser'
+            self.issue = ''
             self.busy = True
             self.awaiting = False
             self.ready.clear()
@@ -177,11 +185,24 @@ class Progress:
                 from computrabajo import collect as worker
             elif self.data.get('platform') == 'indeed':
                 from indeed import collect as worker
-            threading.Thread(target=worker, args=(self,), daemon=True).start()
+            threading.Thread(target=self.run_worker, args=(worker,), daemon=True).start()
 
-    def close_browser(self):
+    def run_worker(self, worker):
+        try:
+            worker(self)
+        except BaseException as exc:
+            # This also covers an exception in another platform or in cleanup.
+            self.diagnostics.event('worker_error', exc=exc, stage=self.stage, code='unhandled_worker')
+            self.issue = 'unhandled_worker'
+            self.message = 'El proceso se detuvo inesperadamente. Tu avance sigue guardado. Pulsa Descargar diagnóstico para revisar la causa.'
+            self.busy = self.awaiting = False
+        finally:
+            self.diagnostics.event('worker_end', stage=self.stage, code=self.issue or 'ok')
+
+    def close_browser(self, reason='manual_close'):
         browser, self.browser = self.browser, None
         if browser:
+            self.diagnostics.event('browser_close', reason=reason, stage=self.stage)
             try:
                 browser.quit()
             except Exception:
@@ -205,9 +226,10 @@ def read_occ_candidate(driver, progress):
     from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
     last_body = ''
     clicked = False
+    last_state = None
 
     def ready(current):
-        nonlocal last_body, clicked
+        nonlocal last_body, clicked, last_state
         if progress.pause.is_set():
             return {'paused': True}
         if not allowed_profile(current.current_url):
@@ -221,17 +243,25 @@ def read_occ_candidate(driver, progress):
             raise ValueError('OCC indica que este perfil no está disponible. No se descartó el candidato ni se borró el avance; revisa la ventana antes de continuar.')
         contact = extract_profile(last_body)
         if contact:
+            if hasattr(progress, 'diagnostics'):
+                progress.diagnostics.event('profile_state', stage='contact_ready', has_contact=True)
             return {'contact': contact, 'body': last_body}
         # CV: 0 is also shown while OCC is loading: never treat it as proof that
         # the candidate is empty, and do not toggle its incomplete contact panel.
         placeholder = bool(re.search(r'(?im)^CV\s*:\s*0\s*$', last_body))
+        if placeholder != last_state and hasattr(progress, 'diagnostics'):
+            progress.diagnostics.event('profile_state', stage='contact_wait', cv_zero=placeholder, has_contact=False)
+            last_state = placeholder
         if not clicked and not placeholder:
             toggles = [el for el in current.find_elements(By.CSS_SELECTOR, 'button,[role="button"]')
                        if el.is_displayed() and norm(el.text) == 'datos de contacto']
-            if len(toggles) == 1 and toggles[0].get_attribute('aria-expanded') != 'true':
+            expanded = len(toggles) == 1 and toggles[0].get_attribute('aria-expanded') == 'true'
+            if len(toggles) == 1 and not expanded:
                 try:
                     toggles[0].click()
                     clicked = True
+                    if hasattr(progress, 'diagnostics'):
+                        progress.diagnostics.event('profile_state', stage='contact_clicked', contact_open=False)
                 except StaleElementReferenceException:
                     return False
         return False
@@ -242,6 +272,9 @@ def read_occ_candidate(driver, progress):
         incomplete = bool(re.search(r'(?im)^CV\s*:\s*0\s*$', last_body))
         reason = ('OCC sigue mostrando el perfil incompleto (CV: 0), sin datos visibles.' if incomplete
                   else 'OCC no mostró datos de contacto que se puedan leer con seguridad.')
+        if hasattr(progress, 'diagnostics'):
+            progress.issue = 'profile_incomplete' if incomplete else 'contact_unreadable'
+            progress.diagnostics.event('profile_paused', stage='contact_wait', code=progress.issue, cv_zero=incomplete)
         raise ValueError(reason + ' El candidato sigue pendiente y el avance está guardado. No se recargó ni se descartó automáticamente; revisa la ventana y pulsa Continuar descarga cuando quieras intentarlo de nuevo.') from None
 
 
@@ -256,11 +289,19 @@ def collect(progress):
         options = webdriver.ChromeOptions()
         options.add_argument('--start-maximized')
         options.add_argument('--user-data-dir=' + str(ROOT / 'perfil-occ'))
+        # Keep Chrome alive if Selenium's Service object is finalized on a worker
+        # exit. Explicit quit still closes it on completion/pause/manual resume.
+        options.add_experimental_option('detach', True)
         driver = webdriver.Chrome(options=options)
+        versions = getattr(driver, 'capabilities', {})
+        progress.diagnostics.event('browser_started', browser_version=versions.get('browserVersion',''), driver_version=versions.get('chrome',{}).get('chromedriverVersion','').split(' ')[0])
         driver.set_page_load_timeout(45)
+        progress.stage = 'opening_list'
         driver.get(URL)
         progress.message = 'En la ventana de OCC, inicia sesión y selecciona la vacante indicada. Después vuelve aquí y pulsa «Ya estoy en la vacante».'
         progress.awaiting = True
+        progress.stage = 'waiting_ready'
+        progress.diagnostics.event('waiting_ready', stage=progress.stage)
         while not progress.ready.wait(.3):
             if progress.pause.is_set():
                 return
@@ -269,6 +310,8 @@ def collect(progress):
         if urlsplit(driver.current_url).hostname != 'empresa.occ.com.mx':
             raise ValueError('Abre OCC e inicia sesión antes de continuar.')
         if not data['listed']:
+            progress.stage = 'reading_list'
+            progress.diagnostics.event('list_start', stage=progress.stage)
             signatures = set()
             page = 0
             while not progress.pause.is_set():
@@ -283,6 +326,7 @@ def collect(progress):
                     page += 1
                     data['pages'] = max(data['pages'], page)
                     progress.save()
+                progress.diagnostics.event('list_page', page=page, total=len(data['candidates']))
                 progress.message = f'Revisando página {page}. El avance se está guardando.'
                 buttons = [el for el in driver.find_elements(By.CSS_SELECTOR, 'button') if el.is_displayed() and norm(el.text) == 'siguiente']
                 if len(buttons) > 1:
@@ -307,6 +351,8 @@ def collect(progress):
                 raise ValueError('OCC cambió un enlace. Pausamos la descarga para revisarlo.')
             # La lista completa y sus estados originales ya están en disco.
             progress.save()
+            progress.stage = 'reading_profile'
+            progress.diagnostics.event('profile_start', stage=progress.stage, profile_number=len(data['done'])+1, total=len(data['selected']))
             progress.message = f'Recopilando candidato {len(data["done"])+1} de {len(data["selected"])}. No cierres la ventana de OCC.'
             driver.get(url)
             result = read_occ_candidate(driver, progress)
@@ -322,29 +368,39 @@ def collect(progress):
                     data['skipped'] += 1
                 data['done'].append(url)
                 progress.save()
+                progress.diagnostics.event('profile_saved', reviewed=len(data['done']), rows=len(data['rows']))
         with progress.lock:
             data['complete'] = True
             progress.save()
         if data['rows']:
             progress.excel()
         progress.message = f'Descarga terminada. {len(unique(data["rows"]))} candidatos listos para Excel. ' + (f'{data["skipped"]} perfiles no se recopilaron porque requieren desbloqueo.' if data['skipped'] else '')
+        progress.stage = 'completed'
+        progress.diagnostics.event('completed', rows=len(data['rows']), complete=True)
     except ValueError as exc:
         progress.message = str(exc)
+        progress.issue = progress.issue or 'read_validation'
+        progress.diagnostics.event('worker_error', exc=exc, stage=progress.stage, code=progress.issue)
         keep_browser = driver is not None
-    except Exception:
+    except Exception as exc:
         # No mostrar trazas, rutas internas ni mensajes técnicos a Vero.
         progress.message = 'La descarga se interrumpió por un problema de carga o conexión. El avance guardado está a salvo y el candidato sigue pendiente. Revisa la ventana y tu conexión antes de pulsar «Continuar descarga»; no se reintentará automáticamente.'
+        progress.issue = type(exc).__name__
+        progress.diagnostics.event('worker_error', exc=exc, stage=progress.stage, code='browser_or_network')
         keep_browser = driver is not None
     finally:
         if driver and keep_browser and not progress.pause.is_set():
             progress.browser = driver
+            progress.diagnostics.event('browser_retained', stage=progress.stage, code=progress.issue)
             progress.message += ' La ventana de OCC queda abierta para revisión; Continuar descarga la cerrará antes de abrir una sesión nueva.'
         elif driver:
+            progress.diagnostics.event('browser_close', reason='user_pause' if progress.pause.is_set() else 'completed', stage=progress.stage)
             try:
                 driver.quit()
             except Exception:
                 pass
         if progress.pause.is_set():
+            progress.diagnostics.event('pause_requested', stage=progress.stage)
             progress.message = 'Descarga pausada. Puedes continuar después o descargar lo recopilado.'
         progress.busy = False
         progress.awaiting = False
@@ -378,6 +434,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(403, {'error': 'Acceso no permitido.'})
         if self.path == '/estado':
             return self.reply(200, self.server.progress.status())
+        if self.path == '/diagnostico':
+            self.server.progress.diagnostics.event('diagnostic_download', stage=self.server.progress.stage)
+            return self.reply(200, self.server.progress.diagnostics.export(), 'text/plain; charset=utf-8')
         if self.path == '/excel':
             try:
                 destination = self.server.progress.excel()
@@ -411,6 +470,13 @@ class Handler(BaseHTTPRequestHandler):
             elif self.path == '/pausar':
                 p.pause.set()
                 p.message = 'Guardando y pausando. Espera un momento.'
+                p.diagnostics.event('pause_requested', stage=p.stage)
+            elif self.path == '/cerrar':
+                if p.busy:
+                    raise ValueError('Primero pulsa Pausar y guardar y espera a que termine.')
+                self.reply(200, {'ok':True})
+                threading.Thread(target=self.server.shutdown, daemon=True).start()
+                return
             else:
                 return self.reply(404, {'error': 'Opción no disponible.'})
             self.reply(200, {'ok': True})
@@ -418,10 +484,31 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(400, {'error': str(exc)})
 
 
+def running_version(url):
+    if not re.fullmatch(r'http://127\.0\.0\.1:[0-9]{1,5}/', url):
+        return 'unknown'
+    try:
+        import urllib.request
+        with urllib.request.urlopen(url, timeout=2) as response:
+            html = response.read(128_000).decode('utf-8', errors='replace')
+        match = re.search(r'VERSIÓN\s+([0-9]+(?:\.[0-9]+){1,3})', html)
+        return match.group(1) if match else 'unknown'
+    except Exception:
+        return 'unknown'
+
+
+class LocalServer(ThreadingHTTPServer):
+    def handle_error(self, request, client_address):
+        import sys
+        self.progress.diagnostics.event('worker_error', exc=sys.exc_info()[1], stage='local_server', code='request_failed')
+
+
 def main():
     # Un segundo doble clic vuelve a la pantalla existente, sin iniciar otro trabajo.
     import msvcrt
     ROOT.mkdir(parents=True, exist_ok=True)
+    diagnostics = DiagnosticLog(ROOT / 'resultados' / 'diagnosticos', VERSION)
+    diagnostics.event('app_start', pid=os.getpid())
     lockfile = (ROOT / '.herramienta.lock').open('a+b')
     if lockfile.seek(0, 2) == 0:
         lockfile.write(b' ')
@@ -432,17 +519,21 @@ def main():
     except OSError:
         lockfile.seek(1)
         previous = lockfile.read().decode('ascii', errors='ignore').strip()
-        if previous.startswith('http://127.0.0.1:') and previous.endswith('/'):
+        if re.fullmatch(r'http://127\.0\.0\.1:[0-9]{1,5}/', previous):
             # No redirigir silenciosamente una actualización hacia el programa viejo.
             import ctypes
-            ctypes.windll.user32.MessageBoxW(None, 'La herramienta ya está abierta. Si acabas de actualizar, cierra la aplicación anterior desde el Administrador de tareas y abre de nuevo el acceso del escritorio. No borres la carpeta de datos: tu avance se conserva.', 'Candidatos · aplicación abierta', 0x40)
-            webbrowser.open(previous)
+            active = running_version(previous)
+            diagnostics.event('existing_instance', active_version=active, stage='startup')
+            if active != VERSION:
+                ctypes.windll.user32.MessageBoxW(None, f'La versión {VERSION} todavía NO está activa. Sigue abierta otra instancia (versión {active}).\n\nCierra la aplicación anterior, no solo su pestaña, y abre de nuevo el acceso del escritorio. El avance se conserva. No se abrirá la pantalla vieja como si fuera la actualización.', 'Actualización pendiente de activar', 0x30)
+            else:
+                webbrowser.open(previous)
         print('La herramienta ya esta abierta. Vuelve a su pantalla para continuar.')
         lockfile.close()
         return
-    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    server = LocalServer(('127.0.0.1', 0), Handler)
     server.token = secrets.token_hex(32)
-    server.progress = Progress(ROOT / 'resultados')
+    server.progress = Progress(ROOT / 'resultados', diagnostics=diagnostics)
     local_url = f'http://127.0.0.1:{server.server_port}/'
     lockfile.seek(1)
     lockfile.truncate()
@@ -455,7 +546,8 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
-        server.progress.close_browser()
+        diagnostics.event('app_stop', stage=server.progress.stage)
+        server.progress.close_browser('app_shutdown')
         server.server_close()
         lockfile.close()
 
@@ -477,6 +569,7 @@ if __name__ == '__main__':
     else:
         try:
             main()
-        except Exception:
+        except Exception as exc:
+            DiagnosticLog(ROOT / 'resultados' / 'diagnosticos', VERSION).event('startup_error', exc=exc, stage='startup')
             import ctypes
             ctypes.windll.user32.MessageBoxW(None, 'No pudimos abrir la herramienta. Cierra la ventana anterior y vuelve a intentarlo. Tu avance guardado no se borra.', 'Candidatos de OCC', 0x10)

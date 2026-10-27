@@ -138,7 +138,7 @@ class LocalAppTests(unittest.TestCase):
                 if url == base+'4':
                     raise OSError('Internet disconnected')
             driver = SimpleNamespace(get=get, set_page_load_timeout=lambda n: None, current_url=base+'3', quit=lambda: None)
-            options = SimpleNamespace(add_argument=lambda value: None)
+            options = SimpleNamespace(add_argument=lambda value: None, add_experimental_option=lambda *args:None)
             modules = {'selenium':SimpleNamespace(webdriver=SimpleNamespace(Chrome=lambda **kw:driver, ChromeOptions=lambda:options)),
                        'selenium.webdriver.common.by':SimpleNamespace(By=SimpleNamespace()),
                        'selenium.webdriver.support.ui':SimpleNamespace(WebDriverWait=object)}
