@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-VERSION = '1.2.4'
+VERSION = '1.2.5'
 PAYLOAD = Path(__file__).resolve().parent / 'OCC-Candidatos.exe'
 
 

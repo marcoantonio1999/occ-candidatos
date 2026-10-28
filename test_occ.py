@@ -1,7 +1,24 @@
 import unittest
-from occ_prueba import seen_status, allowed_profile, unique, extract_profile, extract_sections, select_candidates
+from occ_prueba import seen_status, allowed_profile, unique, extract_profile, extract_sections, select_candidates, phone
 
 class SafetyTests(unittest.TestCase):
+    def test_phone_formats_preserve_ten_digits(self):
+        for value in ['55 1234 5678','+52 (55) 1234-5678','+52 1 55 1234 5678',
+                      '04455- 12345678','045 55 1234 5678']:
+            with self.subTest(value=value):self.assertEqual(phone(value),'5512345678')
+
+    def test_phone_rejects_wrong_lengths_unknown_prefixes_and_embedded_digits(self):
+        for value in ['044551234567','04455123456789','0465512345678','+1 5512345678',
+                      '5512345678@example.invalid','CV: 5512345678','55 1234 5678 ext 1','0441512345678']:
+            with self.subTest(value=value):self.assertEqual(phone(value),'')
+
+    def test_profile_with_legacy_phone_and_numeric_email(self):
+        text='Persona de Prueba\nAzcapotzalco, Ciudad de México\n$11,000 MXN\nDatos de contacto\n04455- 12345678\nprueba5512345678@example.invalid\nDescarga CV\nCV: 123'
+        self.assertEqual(extract_profile(text),dict(name='Persona de Prueba',phone='5512345678'))
+        duplicate=text.replace('04455- 12345678','04455- 12345678\n+52 55 1234 5678')
+        self.assertEqual(extract_profile(duplicate)['phone'],'5512345678')
+        ambiguous=text.replace('04455- 12345678','04455- 12345678\n045 55 8765 4321')
+        self.assertIsNone(extract_profile(ambiguous))
     def test_filter_modes(self):
         base = 'https://empresa.occ.com.mx/empresas/candidatos/1/cv/2/'
         items = [{'url':base+'3','complete_card':True,'labels':[]}, {'url':base+'4','complete_card':True,'labels':['Sin ver']}, {'url':base+'5','labels':[]}]

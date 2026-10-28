@@ -15,7 +15,7 @@ from diagnostics import DiagnosticLog
 from occ_prueba import ROOT, URL, DISCOVER, norm, allowed_profile, extract_profile, extract_sections, select_candidates, unique, export_xlsx
 
 ASSETS = Path(__file__).resolve().parent
-VERSION = '1.2.4'
+VERSION = '1.2.5'
 
 def row_count(data):
     rows = data.get('rows', [])

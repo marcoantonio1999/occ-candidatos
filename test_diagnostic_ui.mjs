@@ -14,14 +14,14 @@ try{for(const width of [320,390,1440]){
   const path=new URL(route.request().url()).pathname;
   if(path==='/')return route.fulfill({contentType:'text/html',body:html});
   assert.equal(route.request().headers()['x-occ-key'],'fictional');
-  if(path==='/diagnostico'){downloads++;return route.fulfill({contentType:'text/plain',body:'{"version":"1.2.4","event":"worker_error","code":"profile_incomplete"}\n'});}
+  if(path==='/diagnostico'){downloads++;return route.fulfill({contentType:'text/plain',body:'{"version":"1.2.5","event":"worker_error","code":"profile_incomplete"}\n'});}
   if(path==='/continuar'){assert.equal(route.request().method(),'POST');resumes++;return route.fulfill({json:{ok:true}});}
   if(path==='/omitir-perfil'){assert.equal(route.request().method(),'POST');assert.deepEqual(route.request().postDataJSON(),{token:'fictional-skip-token'});skips++;resumes++;return route.fulfill({json:{ok:true}});}
   assert.equal(path,'/estado');statusReads++;
-  return route.fulfill({json:{version:'1.2.4',can_skip:!resumes,skip_token:resumes?null:'fictional-skip-token',omitted:skips,stage:resumes?'waiting_ready':'reading_profile',issue:resumes?'':'profile_incomplete',diagnostic_available:true,message:resumes?'Selecciona tu vacante y confirma.':'Perfil incompleto. Avance guardado.',busy:resumes>0,saved:true,count:0,total:5,reviewed:2,pages:1,complete:false,waiting:resumes>0,pending:[],platform:'occ',mode:'all',vacancy:'Ficticia',action:'new'}});
+  return route.fulfill({json:{version:'1.2.5',can_skip:!resumes,skip_token:resumes?null:'fictional-skip-token',omitted:skips,stage:resumes?'waiting_ready':'reading_profile',issue:resumes?'':'profile_incomplete',diagnostic_available:true,message:resumes?'Selecciona tu vacante y confirma.':'Perfil incompleto. Avance guardado.',busy:resumes>0,saved:true,count:0,total:5,reviewed:2,pages:1,complete:false,waiting:resumes>0,pending:[],platform:'occ',mode:'all',vacancy:'Ficticia',action:'new'}});
  });
  await page.goto('http://127.0.0.1:5031/');
- await page.getByText(/Versión activa: 1.2.4/).waitFor();
+ await page.getByText(/Versión activa: 1.2.5/).waitFor();
  assert(await page.getByRole('button',{name:'Continuar descarga',exact:true}).isVisible());
  assert(await page.getByText(/Referencia del problema: profile_incomplete/).isVisible());
  const button=page.getByRole('button',{name:'Descargar diagnóstico',exact:true});assert((await button.boundingBox()).height>=44);

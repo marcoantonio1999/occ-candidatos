@@ -49,7 +49,7 @@ def main():
 
     try:
         for good in (False, True):
-            Fixture.body = ('Persona Ficticia<br>Ciudad de México<br>$8,000 MXN<br>Datos de contacto<br>5512345678<br>Descarga CV<br>CV: 123'
+            Fixture.body = ('Persona Ficticia<br>Ciudad de México<br>$8,000 MXN<br>Datos de contacto<br>04455- 12345678<br>Descarga CV<br>CV: 123'
                             if good else 'Datos de contacto<br>Descarga CV<br>CV: 0')
             with tempfile.TemporaryDirectory() as folder:
                 p = occ_app.Progress(folder)
@@ -57,12 +57,14 @@ def main():
                 p.data = dict(version=1, vacancy='Ficticia', mode='all', platform='occ', candidates=[],
                               selected=[dict(url=profile, review_state='Visto')], rows=[], done=[],
                               pages=0, listed=True, complete=False, skipped=0)
+                if good:
+                    p.data['selected'].append(dict(url=base+'/next',review_state='Visto'))
                 p.save()
                 p.ready.set()
                 p.busy = True
                 with patch('selenium.webdriver.Chrome', chrome), patch('occ_app.URL', base + '/list'), \
                      patch('occ_app.urlsplit', return_value=SimpleNamespace(hostname='empresa.occ.com.mx')), \
-                     patch('occ_app.allowed_profile', side_effect=lambda url: url == profile), \
+                     patch('occ_app.allowed_profile', side_effect=lambda url: url in (profile,base+'/next')), \
                      patch('selenium.webdriver.support.ui.WebDriverWait', side_effect=lambda driver, seconds: WebDriverWait(driver, .6)):
                     p.run_worker(occ_app.collect)
                 assert not p.busy
@@ -93,10 +95,12 @@ def main():
                     assert drivers[-1].session_id==session
                     assert drivers[-1].service.process.poll() is not None
                 else:
-                    assert p.data['complete'] and len(p.data['rows']) == 1, p.message
+                    assert p.data['complete'] and len(p.data['rows']) == 2, p.message
+                    assert p.data['rows'][0]['phone']=='5512345678'
+                    assert p.data['done']==[profile,base+'/next'] and not p.data.get('omitted_profiles')
                     assert p.browser is None
                     assert drivers[-1].service.process.poll() is not None
-                print(json.dumps(dict(realChrome=True, complete=True, manualSkipSameBrowser=not good,
+                print(json.dumps(dict(realChrome=True, complete=True, legacyPhoneThenNext=good, manualSkipSameBrowser=not good,
                                       progressPreserved=True, noOCCTraffic=True)))
     finally:
         for driver in drivers:

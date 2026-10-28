@@ -28,8 +28,12 @@ def seen_status(labels, complete_card=False):
     return bool(values & {'visto', 'vista', 'vistos', 'vistas', 'revisado', 'revisada', 'ya visto'}) or complete_card
 
 def phone(value):
+    # Only normalize a phone-shaped line, not digits embedded in an email,
+    # identifier, extension or arbitrary contact text.
+    if not re.fullmatch(r'\+?[0-9\s().-]+', value.strip()): return ''
     digits = re.sub(r'\D', '', value)
     if len(digits) == 13 and digits.startswith('521'): digits = digits[3:]
+    elif len(digits) == 13 and digits.startswith(('044', '045')): digits = digits[3:]
     elif len(digits) == 12 and digits.startswith('52'): digits = digits[2:]
     return digits if re.fullmatch(r'[2-9]\d{9}', digits) else ''
 

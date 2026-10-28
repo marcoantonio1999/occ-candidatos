@@ -90,6 +90,22 @@ class LoadingTests(unittest.TestCase):
             self.assertEqual(len(p.data['rows']),1);driver.quit.assert_called_once()
             self.assertIsNone(p.browser)
 
+    def test_legacy_contact_is_collected_and_continues_without_omitting(self):
+        with tempfile.TemporaryDirectory() as folder:
+            p=self.progress(folder)
+            next_url=URL.rsplit('/',1)[0]+'/4'
+            p.data['selected'].append(dict(url=next_url,review_state='Visto'))
+            driver,_=self.driver([GOOD.replace('5512345678','04455- 12345678')])
+            driver.get.side_effect=lambda url:setattr(driver,'current_url',url)
+            self.collect_with(p,driver)
+            self.assertTrue(p.data['complete'],p.message)
+            self.assertEqual(p.data['done'],[URL,next_url])
+            self.assertEqual(len(p.data['rows']),2)
+            self.assertEqual(p.data['rows'][0]['phone'],'5512345678')
+            self.assertFalse(p.data.get('omitted_profiles'))
+            self.assertFalse(p.status()['can_skip'])
+            self.assertEqual(p.issue,'')
+
     def test_pause_stops_wait_without_writing_candidate_and_closes_browser(self):
         with tempfile.TemporaryDirectory() as folder:
             p=self.progress(folder);driver,_=self.driver([EMPTY]);p.pause.set()
